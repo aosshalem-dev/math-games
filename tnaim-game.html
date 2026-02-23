@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק קלפים</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(4, 120px);
+            grid-template-rows: repeat(4, 120px);
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 15px;
+        }
+        
+        .cell.hidden {
+            display: none;
+        }
+
+        .cell {
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #333;
+        }
+
+        .cell.condition {
+            background: #ffd700;
+            color: #000;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            font-size: 1.1em;
+            position: relative;
+            padding-bottom: 36px; /* מקום קבוע לכפתורי החצים בתחתית */
+        }
+
+        .condition-buttons {
+            display: flex;
+            gap: 8px;
+            position: absolute;
+            bottom: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            direction: ltr; /* מציג קודם שמאל אח"כ ימין כדי ששניהם יהיו החוצה */
+        }
+
+        .condition-btn {
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 28px;
+            height: 28px;
+            font-size: 0.8em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .condition-btn:hover {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .condition-icon {
+            font-size: 1.5em;
+        }
+
+        .condition-text {
+            font-size: 1em;
+        }
+
+        .solution-info {
+            text-align: center;
+            color: white;
+            margin: 10px 0;
+            font-size: 1.1em;
+        }
+
+        .solution-nav {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .solution-nav-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            direction: ltr; /* מבטיח שחץ ה"הבא" יופיע מימין לטקסט */
+        }
+
+        .solution-nav-btn:hover {
+            background: #0b7dda;
+        }
+
+        .solution-nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .cell.empty {
+            background: #e0e0e0;
+            border: 2px dashed #999;
+        }
+
+        .cell.drag-over {
+            background: #b3d9ff;
+            border: 3px solid #0066cc;
+        }
+
+        .cards-area {
+            min-height: 400px; /* שמור מקום גם כשהקלפים מוסתרים */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-start;
+            align-content: flex-start;
+            max-width: 400px;
+            min-height: 400px;
+        }
+
+        .card {
+            width: 120px;
+            height: 120px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 10px;
+            cursor: grab;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .card.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .card.placed {
+            cursor: pointer;
+        }
+        .card.hint {
+            pointer-events: none; /* אי אפשר ללחוץ או לגרור רמזים */
+        }
+
+        .card.blocked-by-hint {
+            opacity: 0.4 !important; /* קלפים ביד שמופיעים ברמזים - חצי שקופים */
+            cursor: not-allowed !important;
+        }
+
+        .dice-face {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 0;
+            padding: 0;
+        }
+
+        .dice-face > * {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .dice-face .dot {
+            justify-self: center;
+            align-self: center;
+        }
+
+        .dot {
+            width: 28px;
+            height: 28px;
+            background: #333;
+            border-radius: 50%;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .dot.empty {
+            background: transparent;
+        }
+
+        .dot.yellow {
+            background: #ffd700;
+        }
+
+        .dot.blue {
+            background: #1e90ff;
+        }
+
+        .dot.red {
+            background: #dc143c;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap; /* מספיק מקום, ללא גלילה */
+            margin-bottom: 24px;
+        }
+
+        .generate-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .generate-btn:hover {
+            transform: scale(1.05);
+            background: #45a049;
+        }
+
+        .generate-btn.solve-btn {
+            background: #2196F3;
+        }
+
+        .generate-btn.solve-btn:hover {
+            background: #0b7dda;
+        }
+
+        .generate-btn.check-btn {
+            background: #FF9800;
+        }
+
+        .generate-btn.check-btn:hover {
+            background: #F57C00;
+        }
+
+        .cell.condition {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .cell.condition:hover {
+            background: #ffed4e;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <!-- כפתור הגרלה הוסר לפי בקשה -->
+        <button class="generate-btn solve-btn" id="solveBtn">יצור מצב אפשרי</button>
+        <button class="generate-btn check-btn" id="checkBtn">הראה פתרון</button>
+        <button class="generate-btn" id="clearBtn" style="background: #f44336;">מחק פתרון</button>
+        <label style="color:#fff; margin-inline-start:12px; display:flex; align-items:center; gap:6px;">
+            <input type="checkbox" id="autoCheckToggle" checked /> בדיקה כל פעם
+        </label>
+        <label style="color:#fff; margin-inline-start:12px; display:flex; align-items:center; gap:6px;">
+            חשיפות התחלתיות
+            <select id="revealCount">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+        </label>
+        <button class="solution-nav-btn" id="manualCheckBtn" style="display:none;">בדוק</button>
+        <div id="solutionInfo" class="solution-info" style="display: none;"></div>
+        <div id="solutionNav" class="solution-nav" style="display: none;">
+            <button class="solution-nav-btn" id="prevSolutionBtn">◀ הקודם</button>
+            <span id="solutionCounter"></span>
+            <button class="solution-nav-btn" id="nextSolutionBtn">▶ הבא</button>
+        </div>
+    </div>
+    <div class="game-container">
+        <div class="board" id="board"></div>
+        <div class="cards-area" id="cardsArea"></div>
+    </div>
+
+    <script>
+        // צבע לפי זוג קלף – זהה בשני הצדדים
+        const pairColorMap = {
+            '6,1': 'red', '1,6': 'red',
+            '5,2': 'red', '2,5': 'red',
+            '4,3': 'red', '3,4': 'red',
+            '6,2': 'blue', '2,6': 'blue',
+            '5,3': 'blue', '3,5': 'blue',
+            '4,1': 'blue', '1,4': 'blue',
+            '6,3': 'yellow', '3,6': 'yellow',
+            '5,1': 'yellow', '1,5': 'yellow',
+            '4,2': 'yellow', '2,4': 'yellow'
+        };
+
+        function getColorForCard(cardData) {
+            return pairColorMap[`${cardData[0]},${cardData[1]}`] || '';
+        }
+
+        // פונקציה ליצירת נקודות קוביה לפי מספר
+        function createDiceFace(number, colorClass = '') {
+            const face = document.createElement('div');
+            face.className = 'dice-face';
+            
+            // ודא שהמספר תקין
+            if (typeof number !== 'number' || number < 1 || number > 6) {
+                console.error('Invalid number for createDiceFace:', number);
+                number = 1; // fallback
+            }
+            
+            const patterns = {
+                1: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                2: [1, 0, 0, 0, 0, 0, 0, 0, 1],
+                3: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                4: [1, 0, 1, 0, 0, 0, 1, 0, 1],
+                5: [1, 0, 1, 0, 1, 0, 1, 0, 1],
+                6: [1, 0, 1, 1, 0, 1, 1, 0, 1]
+            };
+            
+            const pattern = patterns[number];
+            if (!pattern) {
+                console.error('Pattern not found for number:', number);
+                return createDiceFace(1, colorClass); // fallback
+            }
+            
+            for (let i = 0; i < 9; i++) {
+                const dot = document.createElement('div');
+                if (pattern[i] === 1) {
+                    dot.className = 'dot ' + colorClass;
+                } else {
+                    dot.className = 'dot empty';
+                }
+                face.appendChild(dot);
+            }
+            
+            return face;
+        }
+
+        // יצירת קלף
+        function createCard(cardData, index) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.cardIndex = index;
+            card.dataset.side = 0; // 0 = צד ראשון, 1 = צד שני
+            card.cardData = cardData; // שמירת נתוני הקלף
+            
+            // התחלה עם צד ראשון – צבע לפי זוג קלף
+            const colorClass = getColorForCard(cardData);
+            card.appendChild(createDiceFace(cardData[0], colorClass));
+            
+            // Event listeners
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+            // לא מאפשרים היפוך קלפים
+            
+            return card;
+        }
+
+        // משתנים גלובליים
+        let boardConditions = {}; // שמירת תנאים לכל תא
+        let currentSolution = null; // הפתרון הנוכחי
+        let allSolutions = []; // כל הפתרונות שנמצאו
+        let currentSolutionIndex = -1; // אינדקס הפתרון הנוכחי
+
+        // רשימת תנאים אפשריים
+        const conditionTypes = {
+            sum: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            parity: ['זוגי', 'אי-זוגי'],
+            twoEqualThird: ['שניים שווים לשלישי'],
+            middle: ['עולה או יורד']
+        };
+
+        // יצירת הלוח
+        function createBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    // שורה עליונה (row=0) - תנאים בתאים 1,2,3 (col=0,1,2 ב-RTL = col=3,2,1 ב-LTR)
+                    if (row === 0 && col < 3) {
+                        cell.className = 'cell condition';
+                        cell.textContent = 'תנאי';
+                        cell.addEventListener('click', handleConditionClick);
+                        boardConditions[`${row}-${col}`] = null;
+                    }
+                    // עמודה ימנית (col=3 ב-RTL) - תנאים בתאים 8,12,16 (row=1,2,3)
+                    else if (col === 3 && row > 0) {
+                        cell.className = 'cell condition';
+                        cell.textContent = 'תנאי';
+                        cell.addEventListener('click', handleConditionClick);
+                        boardConditions[`${row}-${col}`] = null;
+                    } else {
+                        cell.className = 'cell empty';
+                        cell.addEventListener('dragover', handleDragOver);
+                        cell.addEventListener('drop', handleDrop);
+                        cell.addEventListener('dragleave', handleDragLeave);
+                    }
+                    
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        // פונקציה לקבלת אייקון לפי סוג תנאי
+        function getConditionIcon(condition) {
+            if (!condition) return '';
+            switch (condition.type) {
+                case 'sum':
+                    return ''; // סכום - בלי אייקון, רק מספר
+                case 'parity':
+                    return condition.value === 'זוגי' ? '⚡' : '⚫'; // זוגי/אי-זוגי
+                case 'twoEqualThird':
+                    return '⚖'; // מאזניים/שוויון
+                case 'middle':
+                    if (condition.value === 'מספר מרכזי') return '◎'; // מרכז
+                    return '';
+                default:
+                    return '';
+            }
+        }
+
+        // פונקציה לעדכון תצוגת התנאי
+        function updateConditionDisplay(cell, condition) {
+            cell.innerHTML = '';
+            if (condition) {
+                // אם זה סכום - רק מספר גדול, בלי אייקון
+                if (condition.type === 'sum') {
+                    const numberSpan = document.createElement('span');
+                    numberSpan.className = 'condition-text';
+                    numberSpan.style.fontSize = '2em';
+                    numberSpan.style.fontWeight = 'bold';
+                    numberSpan.textContent = condition.value;
+                    cell.appendChild(numberSpan);
+                } else {
+                    const icon = getConditionIcon(condition);
+                    if (icon) {
+                        const iconSpan = document.createElement('span');
+                        iconSpan.className = 'condition-icon';
+                        iconSpan.textContent = icon;
+                        cell.appendChild(iconSpan);
+                    }
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'condition-text';
+                    // שינוי טקסט: 'מספר מרכזי' -> 'עולה או יורד'
+                    if (condition.type === 'middle') {
+                        textSpan.textContent = 'עולה או יורד';
+                    } else {
+                        textSpan.textContent = condition.text;
+                    }
+                    cell.appendChild(textSpan);
+                }
+                
+                // הוספת כפתורי ניווט
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.className = 'condition-buttons';
+                
+                const prevBtn = document.createElement('button');
+                prevBtn.className = 'condition-btn';
+                prevBtn.textContent = '◀';
+                prevBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    changeCondition(cell, -1);
+                };
+                
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'condition-btn';
+                nextBtn.textContent = '▶';
+                nextBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    changeCondition(cell, 1);
+                };
+                
+                buttonsDiv.appendChild(prevBtn);
+                buttonsDiv.appendChild(nextBtn);
+                cell.appendChild(buttonsDiv);
+            } else {
+                cell.textContent = 'תנאי';
+            }
+        }
+
+        // שינוי תנאי (קדימה/אחורה)
+        function getAutoCheck() {
+            const el = document.getElementById('autoCheckToggle');
+            return el ? el.checked : true;
+        }
+
+        function runSearchAndDisplay() {
+            const working = findWorkingCardSetForConditions();
+            if (!working) {
+                // אם אין סט מתאים – מחולל סט תנאים חדש באופן אוטומטי
+                generateSolvableBoard();
+                return;
+            }
+            // עדכן את הקלפים הצדדיים לפי הסט שנמצא, שמור פתרונות אך אל תציג
+            createSideCardsWithSides(working.sides);
+            allSolutions = working.solutions;
+            currentSolutionIndex = 0;
+            updateSolutionInfo();
+            // עדכן סימון חסימה אחרי יצירת הקלפים
+            setTimeout(() => updateHandBlockedByHints(), 100);
+            // לא מציגים פתרון כאן; רק בלחיצה על "הראה פתרון"
+        }
+
+        function changeCondition(cell, direction) {
+            const key = `${cell.dataset.row}-${cell.dataset.col}`;
+            const currentCondition = boardConditions[key];
+            
+            // חיפוש תנאי הבא/הקודם
+            let allConditions = [];
+            conditionTypes.sum.forEach(s => allConditions.push({type: 'sum', value: s, text: `סכום: ${s}`}));
+            conditionTypes.parity.forEach(p => allConditions.push({type: 'parity', value: p, text: p}));
+            conditionTypes.twoEqualThird.forEach(t => allConditions.push({type: 'twoEqualThird', value: t, text: t}));
+            conditionTypes.middle.forEach(m => allConditions.push({type: 'middle', value: m, text: m}));
+            
+            let currentIndex = -1;
+            if (currentCondition) {
+                currentIndex = allConditions.findIndex(c => 
+                    c.type === currentCondition.type && c.value === currentCondition.value
+                );
+            }
+            
+            let newIndex;
+            if (direction > 0) {
+                newIndex = (currentIndex + 1) % allConditions.length;
+            } else {
+                newIndex = currentIndex - 1;
+                if (newIndex < 0) newIndex = allConditions.length - 1;
+            }
+            
+            const nextCondition = allConditions[newIndex];
+            boardConditions[key] = nextCondition;
+            updateConditionDisplay(cell, nextCondition);
+            
+            // ניסיון לייצר פתרון חדש
+            // לפי ההגדרה – בצע בדיקה מיד או המתן לכפתור ידני
+            if (getAutoCheck()) {
+                runSearchAndDisplay();
+                // עדכן סימון חסימה אחרי שינוי תנאים (עם delay כדי שהרמזים ייווצרו)
+                setTimeout(() => markBlockedCards(), 200);
+            } else {
+                // גם אם אין auto check, עדכן את הסימון
+                markBlockedCards();
+            }
+        }
+
+        // לחיצה על תנאי - החלפת התנאי (קדימה)
+        function handleConditionClick() {
+            changeCondition(this, 1);
+        }
+
+        // הקלפים החדשים (9 בלבד)
+        const cardsData = [
+            [6, 1], [6, 2], [6, 3],
+            [5, 2], [5, 3], [5, 1],
+            [4, 3], [4, 1], [4, 2]
+        ];
+
+        // ערבוב אקראי
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function getColorName(cardData) {
+            return getColorForCard(cardData);
+        }
+
+        function getSortedCardsList() {
+            // קבץ לפי צבע ולאחר מכן מיין בתוך כל קבוצה בסדר עולה לפי הצד הנראה (side=0)
+            const reds = cardsData.filter(c => getColorName(c) === 'red').sort((a,b) => a[0] - b[0]);
+            const mids = cardsData.filter(c => getColorName(c) === 'blue').sort((a,b) => a[0] - b[0]);
+            const yellows = cardsData.filter(c => getColorName(c) === 'yellow').sort((a,b) => a[0] - b[0]);
+            return [...reds, ...mids, ...yellows];
+        }
+
+        function createSideCardsSorted() {
+            const cardsArea = document.getElementById('cardsArea');
+            cardsArea.innerHTML = '';
+            const cards = getSortedCardsList();
+            cards.forEach((cardData, index) => {
+                const card = createCard(cardData, index);
+                card.style.visibility = 'visible';
+                card.style.opacity = '1';
+                // שמירת האינדקס המקורי כדי להחזיר למקום הנכון במקרה שמחזירים מהלוח
+                card.dataset.originalIndex = index.toString();
+                cardsArea.appendChild(card);
+            });
+            updateHandBlockedByHints();
+        }
+
+        // יצירת הקלפים עם צדדים נתונים (0/1) לפי הסט שעובד
+        function createSideCardsWithSides(sides) {
+            const cardsArea = document.getElementById('cardsArea');
+            cardsArea.innerHTML = '';
+            // סדר לפי צבע ולאחר מכן לפי המספר הנראה עם הצד הנתון
+            const colorOrder = { red: 0, blue: 1, yellow: 2 };
+            const items = cardsData.map((cardData, idx) => ({
+                cardData,
+                side: sides[idx] || 0,
+                color: getColorForCard(cardData),
+                visible: cardData[sides[idx] || 0]
+            }));
+            items.sort((a, b) => {
+                if (colorOrder[a.color] !== colorOrder[b.color]) return colorOrder[a.color] - colorOrder[b.color];
+                return a.visible - b.visible;
+            });
+            items.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.draggable = true;
+                card.dataset.cardIndex = index;
+                card.dataset.side = item.side;
+                card.cardData = item.cardData;
+                const colorClass = getColorForCard(item.cardData);
+                card.appendChild(createDiceFace(item.cardData[item.side], colorClass));
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+                card.addEventListener('click', handleCardClick);
+                cardsArea.appendChild(card);
+            });
+            updateHandBlockedByHints();
+        }
+
+        // בדיקה אם קלף לא ניתן לגרירה (רמז או נמצא ברמזים)
+        function isCardBlocked(card) {
+            if (!card || !card.cardData) return false;
+            if (card.dataset.hint === 'true') return true;
+            const side = parseInt(card.dataset.side) || 0;
+            return isCardInHints(card.cardData, side);
+        }
+
+        // סימון קלפים חצי שקופים אם הם חסומים
+        function markBlockedCards() {
+            // כל הקלפים ביד ובלוח
+            const allCards = document.querySelectorAll('.card');
+            allCards.forEach(card => {
+                const inHand = card.parentElement && card.parentElement.id === 'cardsArea';
+                if (inHand) {
+                    if (isCardBlocked(card)) {
+                        card.classList.add('blocked-by-hint');
+                        card.draggable = false;
+                    } else {
+                        card.classList.remove('blocked-by-hint');
+                        if (!card.classList.contains('placed')) card.draggable = true;
+                    }
+                } else {
+                    // על הלוח תמיד רואים יפה – ללא שקיפות
+                    card.classList.remove('blocked-by-hint');
+                    card.style.opacity = '1';
+                }
+            });
+        }
+
+        // סימון/ביטול חסימה של קלפים בצד לפי הרמזים בלוח
+        function updateHandBlockedByHints() {
+            markBlockedCards();
+        }
+
+        // מחיקת פתרון מהלוח
+        function clearSolution() {
+            // נקה את כל הקלפים מהלוח (מכל התאים, לא רק empty)
+            const boardCells = document.querySelectorAll('.board .cell');
+            boardCells.forEach(cell => {
+                if (!cell.classList.contains('condition')) {
+                    const existing = Array.from(cell.querySelectorAll('.card'));
+                    existing.forEach(x=>x.remove());
+                    cell.classList.add('empty');
+                }
+            });
+            // הסר סימון שימוש מהקלפים שביד
+            try {
+                document.querySelectorAll('#cardsArea .card').forEach(c => {
+                    c.classList.remove('used-in-solution');
+                    c.style.outline = '';
+                });
+            } catch(e) { /* no-op */ }
+            // שחזר רמזים ראשוניים כפי שהיו בהתחלה
+            restoreInitialHints();
+            currentSolution = null;
+        }
+
+        // הנחת רמזים התחלתיים על הלוח ללא הצגת פתרון מלא
+        function placeInitialReveals(count) {
+            // נקה כרטיסים קודמים מהלוח
+            const boardCells = document.querySelectorAll('.board .cell');
+            boardCells.forEach(cell => {
+                if (!cell.classList.contains('condition')) {
+                    const existingCard = cell.querySelector('.card');
+                    if (existingCard) existingCard.remove();
+                    cell.classList.add('empty');
+                }
+            });
+            if (count <= 0) return;
+            // רמזים על האלכסון השני: (1,2) -> (2,1) -> (3,0) - אינדקסים: 2, 4, 6
+            const diagonalOrder = [2, 4, 6];
+            const toReveal = diagonalOrder.slice(0, Math.min(3, Math.max(0, count)));
+            const emptyCellPositions = [
+                {row: 1, col: 0}, {row: 1, col: 1}, {row: 1, col: 2},
+                {row: 2, col: 0}, {row: 2, col: 1}, {row: 2, col: 2},
+                {row: 3, col: 0}, {row: 3, col: 1}, {row: 3, col: 2}
+            ];
+            // נסה להשתמש בפתרון הראשון מהסולבר אם קיים
+            let solutionToUse = null;
+            if (allSolutions && allSolutions.length > 0) {
+                const firstSol = allSolutions[0];
+                if (firstSol && firstSol.cardAssignment) {
+                    // המר את cardAssignment למערך של {cardData, side}
+                    solutionToUse = [];
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 3; c++) {
+                            const assign = firstSol.cardAssignment[r][c];
+                            if (assign) {
+                                solutionToUse.push({
+                                    cardData: cardsData[assign.cardIndex],
+                                    side: assign.side
+                                });
+                            } else {
+                                solutionToUse.push(null);
+                            }
+                        }
+                    }
+                }
+            } else if (currentSolution) {
+                solutionToUse = currentSolution;
+            }
+            if (!solutionToUse) return;
+            
+            toReveal.forEach(i => {
+                const pos = emptyCellPositions[i];
+                const cell = document.querySelector(`[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                const sol = solutionToUse[i];
+                if (cell && sol) {
+                    const hint = document.createElement('div');
+                    hint.className = 'card placed hint';
+                    hint.draggable = false;
+                    hint.dataset.hint = 'true';
+                    hint.dataset.side = sol.side;
+                    hint.cardData = sol.cardData;
+                    const colorClass = getColorForCard(sol.cardData);
+                    hint.appendChild(createDiceFace(sol.cardData[sol.side], colorClass));
+                    cell.appendChild(hint);
+                    cell.classList.remove('empty');
+                }
+            });
+            // שמור רמזי התחלה לצורך שחזור אחרי מחיקת פתרון
+            try {
+                window.__initialHintsSaved = window.__initialHintsSaved || false;
+                if (!window.__initialHintsSaved) {
+                    const hints = [];
+                    const diagonal = [
+                        {row:1,col:2}, {row:2,col:1}, {row:3,col:0}
+                    ];
+                    diagonal.slice(0, toReveal.length).forEach(({row,col}) => {
+                        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                        const hintCard = cell ? cell.querySelector('.card[data-hint="true"]') : null;
+                        if (hintCard && hintCard.cardData) {
+                            hints.push({
+                                row, col, 
+                                cardData: hintCard.cardData,
+                                side: parseInt(hintCard.dataset.side) || 0
+                            });
+                        }
+                    });
+                    window.__initialHints = hints;
+                    window.__initialHintsSaved = true;
+                }
+            } catch(e) { /* no-op */ }
+
+            // עדכן סימון חסימה אחרי יצירת רמזים (עם timeout קצר)
+            setTimeout(() => markBlockedCards(), 50);
+        }
+
+        // שחזור הרמזים הראשוניים (אלכסון) – מוחק רמזים קיימים ומציב את שנשמרו
+        function restoreInitialHints() {
+            try {
+                const boardCells = document.querySelectorAll('.board .cell');
+                boardCells.forEach(cell => {
+                    const hint = cell.querySelector('.card[data-hint="true"]');
+                    if (hint) hint.remove();
+                });
+                if (!window.__initialHints || window.__initialHints.length === 0) return;
+                window.__initialHints.forEach(({row,col,cardData,side}) => {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (!cell) return;
+                    const hint = document.createElement('div');
+                    hint.className = 'card placed hint';
+                    hint.draggable = false;
+                    hint.dataset.hint = 'true';
+                    hint.dataset.side = side || 0;
+                    hint.cardData = cardData;
+                    const colorClass = getColorForCard(cardData);
+                    hint.appendChild(createDiceFace(cardData[side || 0], colorClass));
+                    cell.appendChild(hint);
+                    cell.classList.remove('empty');
+                });
+            } catch(e) { /* no-op */ }
+        }
+
+        // המרת פתרון (מערך באורך 9) לגריד מספרים 3x3 לפי סדר התאים
+        function solutionToNumbersGrid(solution) {
+            const nums = solution.map(s => s.cardData[s.side]);
+            return [
+                [nums[0], nums[1], nums[2]],
+                [nums[3], nums[4], nums[5]],
+                [nums[6], nums[7], nums[8]],
+            ];
+        }
+
+        // המרת גריד 3x3 למפתח מחרוזת ייחודי
+        function numbersGridKey(grid) {
+            return JSON.stringify(grid);
+        }
+
+        // בניית גריד רמזים (מספרים) מהלוח: null כשאין רמז
+        function getHintsNumberGrid() {
+            const grid = [[null,null,null],[null,null,null],[null,null,null]];
+            for (let r=1; r<=3; r++) {
+                for (let c=0; c<3; c++) {
+                    const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                    if (!cell) continue;
+                    const hint = cell.querySelector('.card[data-hint="true"]');
+                    if (hint && hint.cardData) {
+                        const side = parseInt(hint.dataset.side)||0;
+                        grid[r-1][c] = hint.cardData[side];
+                    }
+                }
+            }
+            return grid;
+        }
+
+        // בדיקת גריד מספרים מול תנאי הלוח והרמזים
+        function isValidNumbersGrid(grid, conditions) {
+            // תנאי רמזים: אם יש רמז בתא, הגריד חייב להתאים
+            const hints = getHintsNumberGrid();
+            for (let r=0; r<3; r++) {
+                for (let c=0; c<3; c++) {
+                    if (hints[r][c]!=null && grid[r][c] !== hints[r][c]) return false;
+                }
+            }
+            // עמודות (top conditions 0-col)
+            for (let col=0; col<3; col++) {
+                const conditionKey = `0-${col}`;
+                const cond = conditions[conditionKey];
+                if (!cond) continue;
+                const colValues = [grid[0][col], grid[1][col], grid[2][col]];
+                if (cond.type === 'sum') {
+                    const sum = colValues.reduce((a,b)=>a+b,0);
+                    if (sum !== cond.value) return false;
+                } else if (cond.type === 'parity') {
+                    const sum = colValues.reduce((a,b)=>a+b,0);
+                    const even = sum % 2 === 0;
+                    if ((cond.value === 'זוגי' && !even) || (cond.value === 'אי-זוגי' && even)) return false;
+                } else if (cond.type === 'twoEqualThird') {
+                    const [a,b,c] = colValues; if (a+b!==c && a+c!==b && b+c!==a) return false;
+                } else if (cond.type === 'middle') { // "עולה או יורד"
+                    const [a,b,c] = colValues; const asc = a<b&&b<c; const desc = a>b&&b>c; if (!asc && !desc) return false;
+                }
+            }
+            // שורות (right conditions row+1-3)
+            for (let row=0; row<3; row++) {
+                const conditionKey = `${row+1}-3`;
+                const cond = conditions[conditionKey];
+                if (!cond) continue;
+                const rowValues = grid[row];
+                if (cond.type === 'sum') {
+                    const sum = rowValues.reduce((a,b)=>a+b,0);
+                    if (sum !== cond.value) return false;
+                } else if (cond.type === 'parity') {
+                    const sum = rowValues.reduce((a,b)=>a+b,0);
+                    const even = sum % 2 === 0;
+                    if ((cond.value === 'זוגי' && !even) || (cond.value === 'אי-זוגי' && even)) return false;
+                } else if (cond.type === 'twoEqualThird') {
+                    const [a,b,c] = rowValues; if (a+b!==c && a+c!==b && b+c!==a) return false;
+                } else if (cond.type === 'middle') { // "עולה או יורד"
+                    const [a,b,c] = rowValues; const asc = a<b&&b<c; const desc = a>b&&b>c; if (!asc && !desc) return false;
+                }
+            }
+            return true;
+        }
+
+        // בדיקה אם שני פתרונות זהים (עם המספרים בלבד, לא הקלפים)
+        function areSolutionsEqual(sol1, sol2) {
+            return numbersGridKey(sol1) === numbersGridKey(sol2);
+        }
+
+        // סינון פתרונות כפולים - רק פתרונות עם מספרים שונים
+        function filterUniqueSolutions(solutions) {
+            const unique = [];
+            const seen = new Set();
+            for (const solution of solutions) {
+                // solutions are now {grid, cardAssignment}
+                const grid = solution.grid || solution; // backward compatibility
+                const key = numbersGridKey(grid);
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(solution);
+                }
+            }
+            return unique;
+        }
+
+        // חיפוש כל הפתרונות האפשריים
+        function findAllSolutions() {
+            allSolutions = [];
+            currentSolutionIndex = -1;
+            const grids = solveNumbersGrids(boardConditions, getHintsNumberGrid(), 200);
+            // סינון פתרונות שלא עומדים בתנאים
+            const valid = grids.filter(sol => isValidNumbersGrid(sol.grid || sol, boardConditions));
+            allSolutions = filterUniqueSolutions(valid);
+            if (allSolutions.length > 0) {
+                const g = allSolutions[0].grid || allSolutions[0];
+                logValidation(g, boardConditions);
+            } else {
+                console.warn('No valid solutions found for current conditions.');
+            }
+            return allSolutions;
+        }
+
+        // מציאת כל הפתרונות כשהצדדים קבועים ומתקבלים כארגומנט
+        function findAllSolutionsForFixedCards(_fixedCards, limit = 200) {
+            const grids = solveNumbersGrids(boardConditions, getHintsNumberGrid(), limit);
+            const valid = grids.filter(sol => isValidNumbersGrid(sol.grid || sol, boardConditions));
+            return filterUniqueSolutions(valid).slice(0, limit);
+        }
+
+        // חיפוש סט קלפים (בחירת צד לכל קלף) שעובד לתנאים, והחזרת כל הפתרונות עבורו
+        function findWorkingCardSetForConditions() {
+            const grids = solveNumbersGrids(boardConditions, getHintsNumberGrid(), 200);
+            const valid = grids.filter(sol => isValidNumbersGrid(sol.grid || sol, boardConditions));
+            const unique = filterUniqueSolutions(valid);
+            if (unique.length > 0) return { solutions: unique };
+            return null;
+        }
+
+        // הצגת פתרון על הלוח: משתמש רק בקלפים הקיימים בצד (ללא שינוי/היפוך),
+        // וממקם אותם על הלוח בסידור שפותר את התנאים אם אפשר.
+        function checkSolution() {
+            // נקה את הלוח בלבד, לא את קלפי הצד
+            clearSolution();
+
+            // מצא כל הפתרונות
+            findAllSolutions();
+
+            // עדכן תצוגת מידע על פתרונות
+            updateSolutionInfo();
+
+            if (allSolutions.length === 0) {
+                // הסתר קלפים אבל שמור מקום
+                const cardsArea = document.getElementById('cardsArea');
+                const cards = cardsArea.querySelectorAll('.card');
+                cards.forEach(card => {
+                    card.style.visibility = 'hidden';
+                    card.style.opacity = '0';
+                });
+                return;
+            }
+
+            // הצג את הפתרון הראשון
+            currentSolutionIndex = 0;
+            displaySolution(0);
+        }
+
+        // הצגת פתרון ספציפי
+        function getColorForNumber(n){
+            if(n===1||n===4) return 'red';
+            if(n===2||n===5) return 'blue';
+            if(n===3||n===6) return 'yellow';
+            return '';
+        }
+
+        // פותר NumbersGrid בעזרת חיפוש עם חיתוכים
+        // בנה רשימת קלפים זמינים לפי הצדדים הגלויים ביד
+        function getAvailableCardsFromHand(){
+            const hand = Array.from(document.querySelectorAll('#cardsArea .card'));
+            const result = [];
+            const seen = new Set(); // למנוע כפילויות
+            hand.forEach(card=>{
+                if(!card.cardData) return;
+                const side = parseInt(card.dataset.side)||0;
+                const key = `${card.cardData[0]},${card.cardData[1]},${side}`;
+                if(seen.has(key)) return; // כבר יש
+                seen.add(key);
+                result.push({ cardData: [...card.cardData], allowedSides: [side] }); // העתק של cardData
+            });
+            // אם אין עדיין DOM (במהלך טעינה) – נפולבאק לכל הקלפים עם צד 0
+            if(result.length===0 || result.length!==9){
+                return cardsData.map(cd=>({cardData: [...cd], allowedSides:[0]}));
+            }
+            return result;
+        }
+
+        function solveNumbersGrids(conditions, hintsGrid, limit=200, availableCardsSpec=getAvailableCardsFromHand()){
+            console.time('solveNumbersGrids');
+            let nodesExplored = 0;
+            const targetsRow = [null,null,null];
+            const parityRow = [null,null,null];
+            const eqRow = [null,null,null];
+            const monoRow = [null,null,null];
+            const targetsCol = [null,null,null];
+            const parityCol = [null,null,null];
+            const eqCol = [null,null,null];
+            const monoCol = [null,null,null];
+
+            // ניתוח תנאים
+            for(let c=0;c<3;c++){
+                const key = `0-${c}`; const cond = conditions[key];
+                if(!cond) continue;
+                if(cond.type==='sum') targetsCol[c]=cond.value;
+                if(cond.type==='parity') parityCol[c]= (cond.value==='זוגי');
+                if(cond.type==='twoEqualThird') eqCol[c]=true;
+                if(cond.type==='middle') monoCol[c]=true;
+            }
+            for(let r=0;r<3;r++){
+                const key = `${r+1}-3`; const cond = conditions[key];
+                if(!cond) continue;
+                if(cond.type==='sum') targetsRow[r]=cond.value;
+                if(cond.type==='parity') parityRow[r]= (cond.value==='זוגי');
+                if(cond.type==='twoEqualThird') eqRow[r]=true;
+                if(cond.type==='middle') monoRow[r]=true;
+            }
+
+            const solutions=[];
+            const grid=[[null,null,null],[null,null,null],[null,null,null]];
+            const cardAssignment=[[null,null,null],[null,null,null],[null,null,null]]; // {cardIndex, side}
+            const cnt=[0,0,0,0,0,0,0]; // 1..6
+            const rowSum=[0,0,0];
+            const colSum=[0,0,0];
+            const rowVals=[[],[],[]];
+            const colVals=[[],[],[]];
+            // התאמה לקלפים קיימים: כל קלף בשימוש לכל היותר פעם אחת
+            const usedCard=new Array(availableCardsSpec.length).fill(false);
+            // מיפוי מספר -> רשימת אינדקסי קלפים (לפי הצד הגלוי/מותאם) שיכולים לתת אותו
+            const numToCards={1:[],2:[],3:[],4:[],5:[],6:[]};
+            for(let i=0;i<availableCardsSpec.length;i++){
+                const {cardData, allowedSides} = availableCardsSpec[i];
+                allowedSides.forEach(side=>{
+                    const n = cardData[side];
+                    if(numToCards[n]) numToCards[n].push({cardIndex:i, side});
+                });
+            }
+
+            function okRow(r){
+                const vals=rowVals[r];
+                if(vals.length===3){
+                    if(targetsRow[r]!=null && rowSum[r]!==targetsRow[r]) return false;
+                    if(parityRow[r]!=null){ if((rowSum[r]%2===0)!==parityRow[r]) return false; }
+                    if(eqRow[r]){ const [a,b,c]=vals; if(!(a+b===c||a+c===b||b+c===a)) return false; }
+                    if(monoRow[r]){ const [a,b,c]=vals; if(!((a<b&&b<c)||(a>b&&b>c))) return false; }
+                } else {
+                    if(targetsRow[r]!=null){
+                        const rem=3-vals.length; const min=rowSum[r]+1*rem; const max=rowSum[r]+6*rem; if(targetsRow[r]<min||targetsRow[r]>max) return false;
+                    }
+                }
+                return true;
+            }
+            function okCol(c){
+                const vals=colVals[c];
+                if(vals.length===3){
+                    if(targetsCol[c]!=null && colSum[c]!==targetsCol[c]) return false;
+                    if(parityCol[c]!=null){ if((colSum[c]%2===0)!==parityCol[c]) return false; }
+                    if(eqCol[c]){ const [a,b,c3]=vals; if(!(a+b===c3||a+c3===b||b+c3===a)) return false; }
+                    if(monoCol[c]){ const [a,b,c3]=vals; if(!((a<b&&b<c3)||(a>b&&b>c3))) return false; }
+                } else {
+                    if(targetsCol[c]!=null){
+                        const rem=3-vals.length; const min=colSum[c]+1*rem; const max=colSum[c]+6*rem; if(targetsCol[c]<min||targetsCol[c]>max) return false;
+                    }
+                }
+                return true;
+            }
+
+            function dfs(idx){
+                nodesExplored++;
+                if(solutions.length>=limit) return;
+                if(idx===9){ 
+                    solutions.push({
+                        grid: JSON.parse(JSON.stringify(grid)),
+                        cardAssignment: JSON.parse(JSON.stringify(cardAssignment))
+                    }); 
+                    return; 
+                }
+                const r=Math.floor(idx/3), c=idx%3;
+                if(hintsGrid && hintsGrid[r] && hintsGrid[r][c]!=null){
+                    const n=hintsGrid[r][c];
+                    // צריך לבחור קלף פנוי שמייצר n
+                    const candidates=numToCards[n]||[];
+                    let found=false;
+                    for(const {cardIndex, side} of candidates){
+                        if(usedCard[cardIndex]) continue;
+                        cnt[n]++; if(cnt[n]>3){ cnt[n]--; continue; }
+                        usedCard[cardIndex]=true;
+                        grid[r][c]=n; 
+                        cardAssignment[r][c]={cardIndex, side};
+                        rowSum[r]+=n; colSum[c]+=n; rowVals[r].push(n); colVals[c].push(n);
+                        if(okRow(r) && okCol(c)) {
+                            found=true;
+                            dfs(idx+1);
+                        }
+                        rowVals[r].pop(); colVals[c].pop(); rowSum[r]-=n; colSum[c]-=n; grid[r][c]=null; 
+                        cardAssignment[r][c]=null; usedCard[cardIndex]=false; cnt[n]--;
+                        if(solutions.length>=limit) return;
+                    }
+                    // אם לא נמצא אף קלף מתאים - חזור (dead end)
+                    return;
+                }
+                // ניסיון למצוא מספר וקלף מתאימים
+                let anyPlaced=false;
+                for(let n=1;n<=6;n++){
+                    if(cnt[n]>=3) continue;
+                    const candidates=numToCards[n]||[];
+                    for(const {cardIndex, side} of candidates){
+                        if(usedCard[cardIndex]) continue;
+                        // place using card k
+                        usedCard[cardIndex]=true; cnt[n]++; 
+                        grid[r][c]=n; 
+                        cardAssignment[r][c]={cardIndex, side};
+                        rowSum[r]+=n; colSum[c]+=n; rowVals[r].push(n); colVals[c].push(n);
+                        if(okRow(r) && okCol(c)) { 
+                            anyPlaced=true;
+                            dfs(idx+1); 
+                        }
+                        rowVals[r].pop(); colVals[c].pop(); rowSum[r]-=n; colSum[c]-=n; grid[r][c]=null; 
+                        cardAssignment[r][c]=null; cnt[n]--; usedCard[cardIndex]=false;
+                        if(solutions.length>=limit) return;
+                    }
+                }
+                // אם לא נמצא אף קלף מתאים - חזור (dead end) - זה בסדר, זה backtracking
+            }
+            dfs(0);
+            console.timeEnd('solveNumbersGrids');
+            console.log('nodesExplored:', nodesExplored, 'solutions:', solutions.length);
+            return solutions;
+        }
+
+        // לוג בדיקה מפורטת של תנאים עבור גריד נתון
+        function logValidation(grid, conditions){
+            function rowVals(r){ return grid[r]; }
+            function colVals(c){ return [grid[0][c], grid[1][c], grid[2][c]]; }
+            function sum(a){ return a.reduce((x,y)=>x+y,0); }
+            console.group('Validation for grid');
+            console.table(grid);
+            for(let c=0;c<3;c++){
+                const key=`0-${c}`; const cond=conditions[key]; if(!cond) continue;
+                const vals=colVals(c); const s=sum(vals); const even=(s%2===0);
+                let ok=true, msg='';
+                if(cond.type==='sum'){ ok = s===cond.value; msg = `sum=${s} expected=${cond.value}`; }
+                else if(cond.type==='parity'){ ok = (cond.value==='זוגי')? even: !even; msg = `sum=${s} ${even?'זוגי':'אי-זוגי'}`; }
+                else if(cond.type==='twoEqualThird'){ const [a,b,c3]=vals; ok=(a+b===c3||a+c3===b||b+c===a); msg=`vals=${vals}`; }
+                else if(cond.type==='middle'){ const [a,b,c3]=vals; ok=(a<b&&b<c3)||(a>b&&b>c3); msg=`vals=${vals}`; }
+                console.log(`Top col ${c}:`, cond, '=>', ok?'OK':'FAIL', msg);
+            }
+            for(let r=0;r<3;r++){
+                const key=`${r+1}-3`; const cond=conditions[key]; if(!cond) continue;
+                const vals=rowVals(r); const s=sum(vals); const even=(s%2===0);
+                let ok=true, msg='';
+                if(cond.type==='sum'){ ok = s===cond.value; msg = `sum=${s} expected=${cond.value}`; }
+                else if(cond.type==='parity'){ ok = (cond.value==='זוגי')? even: !even; msg = `sum=${s} ${even?'זוגי':'אי-זוגי'}`; }
+                else if(cond.type==='twoEqualThird'){ const [a,b,c3]=vals; ok=(a+b===c3||a+c3===b||b+c3===a); msg=`vals=${vals}`; }
+                else if(cond.type==='middle'){ const [a,b,c3]=vals; ok=(a<b&&b<c3)||(a>b&&b>c3); msg=`vals=${vals}`; }
+                console.log(`Right row ${r}:`, cond, '=>', ok?'OK':'FAIL', msg);
+            }
+            console.groupEnd();
+        }
+
+        function displaySolution(index) {
+            if (index < 0 || index >= allSolutions.length) return;
+            clearSolution();
+            currentSolutionIndex = index;
+            const solution = allSolutions[index]; // {grid, cardAssignment}
+            const grid = solution.grid;
+            // הגנה נוספת: אם מסיבה כלשהי הפתרון אינו עומד בתנאים – אל תציג
+            if (!isValidNumbersGrid(grid, boardConditions)) {
+                return;
+            }
+            const cardAssignment = solution.cardAssignment;
+            const usedIndices = new Set();
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const cell = document.querySelector(`[data-row="${r+1}"][data-col="${c}"]`);
+                    if (!cell || cell.classList.contains('condition')) continue;
+                    // אל תשנה תאים שיש בהם רמז
+                    if (cell.querySelector('.card[data-hint="true"]')) continue;
+                    const existing = Array.from(cell.querySelectorAll('.card'));
+                    existing.forEach(x=>x.remove());
+                    const n = grid[r][c];
+                    if (n==null) continue;
+                    const assign = cardAssignment[r][c];
+                    if (!assign) continue; // safety check
+                    // השתמש בקלף האמיתי מהסט
+                    const cardData = cardsData[assign.cardIndex];
+                    const side = assign.side;
+                    const boardCard = document.createElement('div');
+                    boardCard.className = 'card placed';
+                    boardCard.draggable = false;
+                    boardCard.cardData = cardData;
+                    boardCard.dataset.cardIndex = assign.cardIndex;
+                    boardCard.dataset.side = side;
+                    const colorClass = getColorForCard(cardData);
+                    boardCard.appendChild(createDiceFace(cardData[side], colorClass));
+                    cell.appendChild(boardCard);
+                    cell.classList.remove('empty');
+                    usedIndices.add(assign.cardIndex);
+                }
+            }
+            // הדגש את הקלפים שביד שנעשה בהם שימוש בפתרון
+            try {
+                const handCards = Array.from(document.querySelectorAll('#cardsArea .card'));
+                handCards.forEach(card => {
+                    const data = card.cardData;
+                    if (!data) return;
+                    const idx = cardsData.findIndex(cd => cd[0]===data[0] && cd[1]===data[1]);
+                    if (usedIndices.has(idx)) {
+                        card.classList.add('used-in-solution');
+                        card.style.outline = '3px solid #4caf50';
+                    }
+                });
+            } catch(e) { /* no-op */ }
+            updateSolutionInfo();
+            updateHandBlockedByHints();
+        }
+
+        // עדכון תצוגת מידע על פתרונות
+        function updateSolutionInfo() {
+            const infoDiv = document.getElementById('solutionInfo');
+            const navDiv = document.getElementById('solutionNav');
+            const counterSpan = document.getElementById('solutionCounter');
+            const prevBtn = document.getElementById('prevSolutionBtn');
+            const nextBtn = document.getElementById('nextSolutionBtn');
+            
+            if (allSolutions.length === 0) {
+                infoDiv.textContent = 'לא נמצא פתרון לסט הקלפים הנוכחי';
+                infoDiv.style.display = 'block';
+                navDiv.style.display = 'none';
+            } else {
+                infoDiv.textContent = `נמצאו ${allSolutions.length} פתרונות לסט הקלפים הזה`;
+                infoDiv.style.display = 'block';
+                navDiv.style.display = 'flex';
+                counterSpan.textContent = `פתרון ${currentSolutionIndex + 1} מתוך ${allSolutions.length}`;
+                
+                prevBtn.disabled = currentSolutionIndex === 0;
+                nextBtn.disabled = currentSolutionIndex === allSolutions.length - 1;
+            }
+        }
+
+        // הצבת פתרון על הלוח
+        function placeSolutionOnBoard(solution) {
+            // הצב את הקלפים מהפתרון
+            const cardsArea = document.getElementById('cardsArea');
+            const availableCards = Array.from(cardsArea.querySelectorAll('.card'));
+            
+            // יצירת grid מהפתרון (3x3)
+            const grid = new Array(3).fill(null).map(() => new Array(3).fill(null));
+            for (let i = 0; i < solution.length; i++) {
+                const row = Math.floor(i / 3);
+                const col = i % 3;
+                grid[row][col] = solution[i];
+            }
+            
+            // מיפוי התאים הריקים בלוח: row 1,2,3, col 0,1,2 (לא col 3 כי זה תנאים)
+            const emptyCellPositions = [
+                {row: 1, col: 0}, {row: 1, col: 1}, {row: 1, col: 2},
+                {row: 2, col: 0}, {row: 2, col: 1}, {row: 2, col: 2},
+                {row: 3, col: 0}, {row: 3, col: 1}, {row: 3, col: 2}
+            ];
+            
+            // הצבת הקלפים על הלוח
+            for (let i = 0; i < solution.length; i++) {
+                const cardSolution = solution[i];
+                const pos = emptyCellPositions[i];
+                const cell = document.querySelector(`[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                
+                if (cell && cardSolution) {
+                    // תמיד צור קלף חדש עם הצד הנכון
+                    const matchingCard = document.createElement('div');
+                    matchingCard.className = 'card';
+                    matchingCard.draggable = false;
+                    matchingCard.dataset.cardIndex = i;
+                    matchingCard.dataset.side = cardSolution.side;
+                    matchingCard.cardData = cardSolution.cardData;
+                    matchingCard.classList.add('placed');
+                    
+                    // ודא שהמספר נכון - debug
+                    const side = cardSolution.side;
+                    const number = cardSolution.cardData[side];
+                    
+                    // Debug: הדפס את המספר
+                    if (i < 3) { // רק עבור 3 הראשונים כדי לא לזהם את הקונסול
+                        console.log(`Card ${i}: cardData=${cardSolution.cardData}, side=${side}, number=${number}`);
+                    }
+                    
+                    // בדיקה: האם המספר תקין
+                    if (typeof number !== 'number' || number < 1 || number > 6) {
+                        console.error('Invalid number in placeSolutionOnBoard:', number, 'cardData:', cardSolution.cardData, 'side:', side);
+                    }
+                    
+                    const colorClass = getColorForCard(cardSolution.cardData);
+                    
+                    // יצירת פני הקוביה עם המספר הנכון
+                    const diceFace = createDiceFace(number, colorClass);
+                    matchingCard.appendChild(diceFace);
+                    
+                    // הצב על הלוח
+                    cell.appendChild(matchingCard);
+                    cell.classList.remove('empty');
+                }
+            }
+        }
+
+        // בדיקה אם פתרון תקף
+        function isValidSolution(solution, conditions) {
+            // בדיקת מגבלות: כל מספר יכול להופיע עד 3 פעמים
+            const counts = {};
+            const usedNumbers = new Set();
+            
+            for (let i = 0; i < solution.length; i++) {
+                const card = solution[i];
+                const side = card.side;
+                const number = card.cardData[side];
+                const otherNumber = card.cardData[1 - side];
+                
+                counts[number] = (counts[number] || 0) + 1;
+                if (counts[number] > 3) return false;
+                
+                // אם יש קלף (1,4) ואנחנו משתמשים ב-1, אז 4 מופיע בצד השני
+                // אם יש 3 קלפים שמשתמשים ב-1, אז 4 לא יכול להופיע 3 פעמים בצד הראשון
+                // בדיקה: אם יש 3 פעמים 1, אז לא יכול להיות גם 3 פעמים 4
+                if (number === 1 && counts[1] === 3) {
+                    const fourCount = solution.filter(c => c.cardData[c.side] === 4).length;
+                    if (fourCount === 3) {
+                        // בדיקה אם יש קלף (1,4) שמשתמש ב-1
+                        const oneFourUsed = solution.filter(c => 
+                            ((c.cardData[0] === 1 && c.cardData[1] === 4) || 
+                             (c.cardData[0] === 4 && c.cardData[1] === 1)) &&
+                            c.cardData[c.side] === 1
+                        ).length;
+                        if (oneFourUsed > 0) return false;
+                    }
+                }
+                if (number === 4 && counts[4] === 3) {
+                    const oneCount = solution.filter(c => c.cardData[c.side] === 1).length;
+                    if (oneCount === 3) {
+                        const oneFourUsed = solution.filter(c => 
+                            ((c.cardData[0] === 1 && c.cardData[1] === 4) || 
+                             (c.cardData[0] === 4 && c.cardData[1] === 1)) &&
+                            c.cardData[c.side] === 4
+                        ).length;
+                        if (oneFourUsed > 0) return false;
+                    }
+                }
+            }
+            
+            // בדיקת תנאים
+            const grid = new Array(3).fill(null).map(() => new Array(3).fill(null));
+            for (let i = 0; i < solution.length; i++) {
+                const card = solution[i];
+                const row = Math.floor(i / 3);
+                const col = i % 3;
+                grid[row][col] = card.cardData[card.side];
+            }
+            
+            // בדיקת תנאי שורות (row=0, col=0,1,2) - מעל כל טור
+            for (let col = 0; col < 3; col++) {
+                const conditionKey = `0-${col}`;
+                const condition = conditions[conditionKey];
+                if (condition) {
+                    const colValues = [grid[0][col], grid[1][col], grid[2][col]];
+                    if (condition.type === 'sum') {
+                        const sum = colValues.reduce((a, b) => a + b, 0);
+                        if (sum !== condition.value) return false;
+                    } else if (condition.type === 'parity') {
+                        const sum = colValues.reduce((a, b) => a + b, 0);
+                        const isEven = sum % 2 === 0;
+                        if ((condition.value === 'זוגי' && !isEven) || 
+                            (condition.value === 'אי-זוגי' && isEven)) return false;
+                    } else if (condition.type === 'twoEqualThird') {
+                        const [a, b, c] = colValues;
+                        if (a + b !== c && a + c !== b && b + c !== a) return false;
+                    } else if (condition.type === 'middle') {
+                        // סדר עולה או יורד (שאינו שוויון)
+                        const [a, b, c] = colValues;
+                        const ascending = a < b && b < c;
+                        const descending = a > b && b > c;
+                        if (!ascending && !descending) return false;
+                    }
+                }
+            }
+            
+            // בדיקת תנאי טורים (row=1,2,3, col=3) - מימין לכל שורה
+            for (let row = 0; row < 3; row++) {
+                const conditionKey = `${row + 1}-3`;
+                const condition = conditions[conditionKey];
+                if (condition) {
+                    const rowValues = grid[row];
+                    if (condition.type === 'sum') {
+                        const sum = rowValues.reduce((a, b) => a + b, 0);
+                        if (sum !== condition.value) return false;
+                    } else if (condition.type === 'parity') {
+                        const sum = rowValues.reduce((a, b) => a + b, 0);
+                        const isEven = sum % 2 === 0;
+                        if ((condition.value === 'זוגי' && !isEven) || 
+                            (condition.value === 'אי-זוגי' && isEven)) return false;
+                    } else if (condition.type === 'twoEqualThird') {
+                        const [a, b, c] = rowValues;
+                        if (a + b !== c && a + c !== b && b + c !== a) return false;
+                    } else if (condition.type === 'middle') {
+                        const [a, b, c] = rowValues;
+                        const ascending = a < b && b < c;
+                        const descending = a > b && b > c;
+                        if (!ascending && !descending) return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        // ייצור פתרון
+        function generateSolution() {
+            // ניסיון למצוא פתרון
+            const maxAttempts = 10000;
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const shuffled = shuffleArray([...cardsData]);
+                const solution = [];
+                
+                for (let cardData of shuffled) {
+                    const side = Math.floor(Math.random() * 2);
+                    solution.push({cardData, side});
+                }
+                
+                if (isValidSolution(solution, boardConditions)) {
+                    currentSolution = solution;
+                    createCards(solution.map(s => s.cardData));
+                    // הגדרת הצדדים הנכונים
+                    setTimeout(() => {
+                        const cards = document.querySelectorAll('.card');
+                        cards.forEach((card, i) => {
+                            if (solution[i]) {
+                                const side = solution[i].side;
+                                if (parseInt(card.dataset.side) !== side) {
+                                    // הפיכת הקלף ישירות
+                                    const cardData = card.cardData;
+                                    card.innerHTML = '';
+                                    const number = cardData[side];
+                                    const colorClass = getColorForCard(cardData);
+                                    card.appendChild(createDiceFace(number, colorClass));
+                                    card.dataset.side = side;
+                                }
+                            }
+                        });
+                        // מצא כל הפתרונות ותציג מידע
+                        findAllSolutions();
+                        updateSolutionInfo();
+                    }, 100);
+                    return;
+                }
+            }
+            
+            // אם לא נמצא פתרון - הסתר את כל הקלפים (אבל שמור את המקום)
+            const cardsArea = document.getElementById('cardsArea');
+            const cards = cardsArea.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.style.visibility = 'hidden';
+                card.style.opacity = '0';
+            });
+            currentSolution = null;
+            allSolutions = [];
+            currentSolutionIndex = -1;
+            updateSolutionInfo();
+        }
+
+        // הגרלת לוח חדש
+        function generateNewBoard() {
+            // איפוס תנאים
+            boardConditions = {};
+            const conditionCells = document.querySelectorAll('.cell.condition');
+            // ברירת מחדל: כל התנאים 'זוגי'
+            conditionCells.forEach(cell => {
+                const key = `${cell.dataset.row}-${cell.dataset.col}`;
+                const defaultCondition = {type: 'parity', value: 'זוגי', text: 'זוגי'};
+                boardConditions[key] = defaultCondition;
+                updateConditionDisplay(cell, defaultCondition);
+            });
+            
+            // חשב פתרונות בהתאם לברירת המחדל
+            findAllSolutions();
+            updateSolutionInfo();
+            if (allSolutions.length > 0) {
+                currentSolutionIndex = 0;
+                displaySolution(0);
+            } else {
+                clearSolution();
+            }
+        }
+
+        // יצירת מצב אפשרי - יוצר פתרון תחילה ואז בונה תנאים סביבו
+        function generateSolvableBoard() {
+            // NEW: יצירת פאזל לפי רצף הדרישות של המשתמש
+            function randomSolutionFromCards(){
+                const indices = [...Array(cardsData.length).keys()];
+                const order = shuffleArray(indices);
+                const res = [];
+                for (let idx of order) {
+                    const side = Math.floor(Math.random()*2);
+                    res.push({cardData: cardsData[idx], side});
+                }
+                return res;
+            }
+            function buildGridFromSolution(sol){
+                const g = [[null,null,null],[null,null,null],[null,null,null]];
+                for(let i=0;i<9;i++){
+                    const r=Math.floor(i/3), c=i%3;
+                    g[r][c]=sol[i].cardData[sol[i].side];
+                }
+                return g;
+            }
+            function isMiddle(vals){ const [a,b,c]=vals; if(a===b||b===c||a===c) return false; return b*2===a+c; }
+            function isTwoEq(vals){ const [a,b,c]=vals; return a+b===c||a+c===b||b+c===a; }
+            function sumOf(vals){ return vals[0]+vals[1]+vals[2]; }
+            function colVals(g,c){ return [g[0][c],g[1][c],g[2][c]]; }
+
+            const maxAttempts = 5000;
+            let built = false;
+            for(let att=0; att<maxAttempts && !built; att++){
+                const solution = randomSolutionFromCards();
+                const grid = buildGridFromSolution(solution);
+
+                // אפס תנאים
+                boardConditions = {};
+                const conditionCells = document.querySelectorAll('.cell.condition');
+                conditionCells.forEach(cell => { const key = `${cell.dataset.row}-${cell.dataset.col}`; boardConditions[key]=null; cell.textContent='תנאי'; });
+
+                // 1) מצא שורה/טור עם middle
+                const candidatesMiddle = [];
+                for(let r=0;r<3;r++) if(isMiddle(grid[r])) candidatesMiddle.push({type:'row', index:r});
+                for(let c=0;c<3;c++) if(isMiddle(colVals(grid,c))) candidatesMiddle.push({type:'col', index:c});
+                if(candidatesMiddle.length===0) continue;
+                const pickM = candidatesMiddle[Math.floor(Math.random()*candidatesMiddle.length)];
+
+                // 2) מצא שורה/טור שונה עם שניים שווים לשלישי
+                const candidatesTwoEq = [];
+                for(let r=0;r<3;r++) if(isTwoEq(grid[r]) && !(pickM.type==='row' && pickM.index===r)) candidatesTwoEq.push({type:'row', index:r});
+                for(let c=0;c<3;c++) if(isTwoEq(colVals(grid,c)) && !(pickM.type==='col' && pickM.index===c)) candidatesTwoEq.push({type:'col', index:c});
+                if(candidatesTwoEq.length===0) continue;
+                const pickE = candidatesTwoEq[Math.floor(Math.random()*candidatesTwoEq.length)];
+
+                // 3) בחר שורת סכום וטור סכום שונים מהקודמים
+                const rowsLeft = [0,1,2].filter(r => !(pickM.type==='row'&&pickM.index===r) && !(pickE.type==='row'&&pickE.index===r));
+                const colsLeft = [0,1,2].filter(c => !(pickM.type==='col'&&pickM.index===c) && !(pickE.type==='col'&&pickE.index===c));
+                if(rowsLeft.length===0 || colsLeft.length===0) continue;
+                const rowSumIdx = rowsLeft[Math.floor(Math.random()*rowsLeft.length)];
+                const colSumIdx = colsLeft[Math.floor(Math.random()*colsLeft.length)];
+
+                // 4) שאר התאים – זוגיות
+                function setTop(col,cond){ const key=`0-${col}`; const cell=document.querySelector(`[data-row="0"][data-col="${col}"]`); boardConditions[key]=cond; updateConditionDisplay(cell,cond); }
+                function setRight(row,cond){ const key=`${row+1}-3`; const cell=document.querySelector(`[data-row="${row+1}"][data-col="3"]`); boardConditions[key]=cond; updateConditionDisplay(cell,cond); }
+
+                // הגדר middle
+                if(pickM.type==='row'){ setRight(pickM.index, {type:'middle', value:'מספר מרכזי', text:'מספר מרכזי'}); }
+                else { setTop(pickM.index, {type:'middle', value:'מספר מרכזי', text:'מספר מרכזי'}); }
+                // הגדר twoEqualThird
+                if(pickE.type==='row'){ setRight(pickE.index, {type:'twoEqualThird', value:'שניים שווים לשלישי', text:'שניים שווים לשלישי'}); }
+                else { setTop(pickE.index, {type:'twoEqualThird', value:'שניים שווים לשלישי', text:'שניים שווים לשלישי'}); }
+                // סכומים
+                setRight(rowSumIdx, {type:'sum', value: sumOf(grid[rowSumIdx]), text:`סכום: ${sumOf(grid[rowSumIdx])}`});
+                setTop(colSumIdx, {type:'sum', value: sumOf(colVals(grid,colSumIdx)), text:`סכום: ${sumOf(colVals(grid,colSumIdx))}`});
+                // זוגיות לשאר
+                for(let r=0;r<3;r++){
+                    const key=`${r+1}-3`; if(boardConditions[key]) continue; const s=sumOf(grid[r]); const even=(s%2===0); setRight(r,{type:'parity', value: even?'זוגי':'אי-זוגי', text: even?'זוגי':'אי-זוגי'});
+                }
+                for(let c=0;c<3;c++){
+                    const key=`0-${c}`; if(boardConditions[key]) continue; const vals=colVals(grid,c); const s=sumOf(vals); const even=(s%2===0); setTop(c,{type:'parity', value: even?'זוגי':'אי-זוגי', text: even?'זוגי':'אי-זוגי'});
+                }
+
+                // שמירת פתרון יחיד תואם
+                allSolutions = [{ grid, cardAssignment: [[[0,0],[0,0],[0,0]],[[0,0],[0,0],[0,0]],[[0,0],[0,0],[0,0]]] }];
+                // בניית cardAssignment אמיתי
+                const ca=[[null,null,null],[null,null,null],[null,null,null]];
+                for(let i=0;i<9;i++){ const r=Math.floor(i/3), c=i%3; ca[r][c]={cardIndex:i, side: solution[i].side}; }
+                allSolutions[0].cardAssignment = ca;
+                currentSolutionIndex = 0;
+                updateSolutionInfo();
+                // הצג את הקלפים ביד עם הצדדים שנבחרו
+                const sides = new Array(cardsData.length).fill(0);
+                solution.forEach(sol => {
+                    // מצא את אינדקס הקלף ב-cardsData (ייחודי)
+                    const idx = cardsData.findIndex(cd => cd[0]===sol.cardData[0] && cd[1]===sol.cardData[1]);
+                    if (idx>=0) sides[idx] = sol.side;
+                });
+                createSideCardsWithSides(sides);
+
+                // רמזים – לפי בחירה
+                const reveals = parseInt((document.getElementById('revealCount')||{}).value||'0');
+                currentSolution = solution;
+                placeInitialReveals(reveals);
+                logValidation(grid, boardConditions);
+                built = true;
+            }
+            if(!built){
+                console.warn('Failed to build puzzle after attempts');
+            }
+        }
+
+        // פונקציה שבודקת אם קלף נמצא ברמזים
+        function isCardInHints(cardData, side) {
+            if (!cardData) return false;
+            const boardCells = document.querySelectorAll('.board .cell');
+            for (const cell of boardCells) {
+                // חפש כל קלף עם data-hint="true"
+                const card = cell.querySelector('.card[data-hint="true"]');
+                if (card && card.cardData) {
+                    const hintCardData = card.cardData;
+                    const hintSide = parseInt(card.dataset.side) || 0;
+                    // בדיקה אם אותו זוג קלפים ואותו צד
+                    if (hintCardData[0] === cardData[0] && hintCardData[1] === cardData[1] && hintSide === side) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Drag & Drop handlers
+        let draggedCard = null;
+
+        function handleDragStart(e) {
+            // אם זה רמז או קיים ברמזים - מניעת גרירה
+            if (this.dataset.hint === 'true' || isCardInHints(this.cardData, parseInt(this.dataset.side))) {
+                e.preventDefault();
+                return false;
+            }
+            draggedCard = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedCard = null;
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            this.classList.add('drag-over');
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            this.classList.remove('drag-over');
+            
+            // אם הקלף שנגרר הוא רמז או קיים ברמזים - לא להניח
+            if (!draggedCard || draggedCard.dataset.hint === 'true' || 
+                isCardInHints(draggedCard.cardData, parseInt(draggedCard.dataset.side))) {
+                return false;
+            }
+            
+            if (draggedCard && this.classList.contains('empty') && !this.querySelector('.card')) {
+                // שמור את המיקום המקורי של הקלף ב-hand
+                const cardsArea = document.getElementById('cardsArea');
+                const originalIndex = Array.from(cardsArea.children).indexOf(draggedCard);
+                if (originalIndex !== -1) {
+                    draggedCard.dataset.originalIndex = originalIndex;
+                    // צור placeholder ריק במקום הקלף
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'card placeholder';
+                    placeholder.style.visibility = 'hidden';
+                    placeholder.style.width = draggedCard.style.width || '120px';
+                    placeholder.style.height = draggedCard.style.height || '120px';
+                    placeholder.style.margin = '0';
+                    placeholder.style.padding = '0';
+                    placeholder.draggable = false;
+                    cardsArea.insertBefore(placeholder, cardsArea.children[originalIndex]);
+                }
+                // העברת הקלף למקום החדש
+                this.appendChild(draggedCard);
+                draggedCard.classList.add('placed');
+                draggedCard.draggable = false; // לא ניתן לגרור קלף שכבר מוצב
+                updateHandBlockedByHints(); // עדכן סימון חסימה
+            }
+            
+            return false;
+        }
+
+        // לחיצה על קלף
+        function handleCardClick(e) {
+            // אם זה רמז – אין אינטראקציה
+            if (this.dataset.hint === 'true') return;
+
+            if (this.classList.contains('placed')) {
+                // לחיצה על קלף שמוצב בלוח (שאינו רמז) – זריקה חזרה לאזור הקלפים
+                const parentCell = this.parentElement;
+                const cardsArea = document.getElementById('cardsArea');
+                this.classList.remove('placed');
+                this.draggable = true;
+                // החזר את הקלף למקום המקורי (תחליף את ה-placeholder אם יש)
+                const originalIndex = this.dataset.originalIndex;
+                if (originalIndex !== undefined) {
+                    const placeholders = Array.from(cardsArea.querySelectorAll('.placeholder'));
+                    const placeholder = placeholders.find(p => {
+                        const idx = Array.from(cardsArea.children).indexOf(p);
+                        return idx === parseInt(originalIndex);
+                    });
+                    if (placeholder) {
+                        cardsArea.insertBefore(this, placeholder);
+                        placeholder.remove();
+                    } else {
+                        // אם אין placeholder, הוסף במקום הנכון לפי האינדקס
+                        const children = Array.from(cardsArea.children).filter(c => !c.classList.contains('placeholder'));
+                        if (children.length > parseInt(originalIndex)) {
+                            cardsArea.insertBefore(this, children[parseInt(originalIndex)]);
+                        } else {
+                            cardsArea.appendChild(this);
+                        }
+                    }
+                } else {
+                    cardsArea.appendChild(this);
+                }
+                if (parentCell && parentCell.classList.contains('cell')) {
+                    parentCell.classList.add('empty');
+                }
+                updateHandBlockedByHints();
+            }
+            // לא מאפשרים החלפת צד בכלל – כשלא מוצב פשוט לא עושים כלום
+        }
+
+        // אתחול
+        createBoard();
+        createSideCardsSorted();
+        // ברירת מחדל: צור פאזל פתיר לפי הכללים, ללא הצגת פתרון
+        generateSolvableBoard();
+        
+        // הוספת כפתורים
+        // כפתור הגרלה הוסר
+        document.getElementById('solveBtn').addEventListener('click', () => {
+            // יצירת לוח חדש עם תנאים פתירים
+            generateSolvableBoard();
+        });
+        document.getElementById('checkBtn').addEventListener('click', () => {
+            // אם כבר יש פתרונות מחושבים – הצג את הנוכחי
+            if (allSolutions && allSolutions.length > 0) {
+                currentSolutionIndex = Math.max(0, currentSolutionIndex);
+                displaySolution(currentSolutionIndex);
+                return;
+            }
+
+            // חפש פתרונות לפי NumbersGrid
+            const working = findWorkingCardSetForConditions();
+            if (working && working.solutions && working.solutions.length) {
+                allSolutions = working.solutions;
+                currentSolutionIndex = 0;
+                displaySolution(0);
+            } else {
+                updateSolutionInfo();
+            }
+        });
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            clearSolution();
+            allSolutions = [];
+            currentSolutionIndex = -1;
+            updateSolutionInfo();
+            document.getElementById('solutionInfo').style.display = 'none';
+            document.getElementById('solutionNav').style.display = 'none';
+            // החזר קלפים להיות נראים
+            const cardsArea = document.getElementById('cardsArea');
+            const cards = cardsArea.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.style.visibility = 'visible';
+                card.style.opacity = '1';
+                card.classList.remove('blocked-by-hint');
+                card.draggable = true;
+            });
+            updateHandBlockedByHints();
+        });
+        
+        // כפתורי ניווט בין פתרונות
+        document.getElementById('prevSolutionBtn').addEventListener('click', () => {
+            if (currentSolutionIndex > 0) {
+                displaySolution(currentSolutionIndex - 1);
+            }
+        });
+        document.getElementById('nextSolutionBtn').addEventListener('click', () => {
+            if (currentSolutionIndex < allSolutions.length - 1) {
+                displaySolution(currentSolutionIndex + 1);
+            }
+        });
+
+        // החלפת מצב בדיקה אוטומטית / ידנית
+        const autoToggle = document.getElementById('autoCheckToggle');
+        const manualBtn = document.getElementById('manualCheckBtn');
+        autoToggle.addEventListener('change', () => {
+            manualBtn.style.display = autoToggle.checked ? 'none' : 'inline-block';
+        });
+        manualBtn.addEventListener('click', () => {
+            runSearchAndDisplay();
+        });
+    </script>
+</body>
+</html>

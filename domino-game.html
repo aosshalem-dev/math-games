@@ -1,0 +1,335 @@
+<!-- =========================================================
+ Multiplicative Domino Game – FULL VERSION
+ A single‑file implementation with clearly numbered BLOCKS.
+ Copy‑paste into an empty *.html* file and open in any modern browser.
+========================================================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- =========================================================
+   BLOCK:11  – meta & title
+  ========================================================= -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplicative Domino Game</title>
+
+<!-- =========================================================
+   BLOCK:22  – styles  (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<style>
+/* --- layout ------------------------------------------------ */
+html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif}
+body      {display:flex;flex-direction:column;background:#fafafa}
+#game     {flex:1 1 auto;display:flex;flex-direction:column}
+#board    {flex:1 1 auto;display:flex;flex-direction:column;gap:.4rem;padding:.6rem}
+.boardRow {display:flex;gap:.25rem}
+.rowSelected>.tile:last-child{outline:4px solid #005cff;outline-offset:2px}
+
+/* --- racks ------------------------------------------------- */
+#racks    {flex:0 0 auto;display:flex;flex-direction:column;gap:.6rem;
+           border-top:1px solid #bbb;padding:.6rem}
+.rack     {display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.rackTitle{min-width:90px;text-align:center;font-weight:700}
+.hand     {display:flex;gap:.25rem;flex-wrap:wrap}
+.active   {background:#e4f1ff;border-radius:4px;padding:.2rem .4rem}
+
+/* --- tile -------------------------------------------------- */
+.tile     {width:60px;height:120px;border:2px solid #000;border-radius:4px;
+           display:flex;flex-direction:column;background:#ffe66d;cursor:pointer;
+           user-select:none;transition:transform .15s}
+.tile:hover{transform:scale(1.05)}
+.half     {flex:1;display:flex;align-items:center;justify-content:center;font-weight:700}
+.top      {border-bottom:2px solid #000}
+.small    {font-size:26pt}
+.large    {font-size:30pt}
+
+/* --- states & misc ---------------------------------------- */
+.selected  {outline:4px solid #ff0044;outline-offset:2px;transform:scale(1.12);
+            background:#ffdbe0}
+.potential {outline:4px dashed #008a00;outline-offset:2px}
+button     {padding:.35rem .8rem}
+#showMult  {margin-bottom:.4rem}
+footer     {text-align:center;padding:.5rem;background:#fff;border-top:2px solid #bbb}
+</style>
+
+
+
+
+  <!-- =========================================================
+   BLOCK:33  – header
+  ========================================================= -->
+  <header><h1 style="text-align:center;margin:.5rem 0">Multiplicative Domino Game</h1></header>
+<!-- =========================================================
+   BLOCK:44  – main structure (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<main id="game">
+  <!-- row-picker & multiples helper -->
+  <button id="showMult" disabled>Show multiples</button>
+
+  <!-- board (two rows) -->
+  <section id="board"></section>
+
+  <!-- racks -->
+  <div id="racks">
+
+    <!-- Player 1 -->
+    <div class="rack" id="rack0">
+      <div class="rackTitle">Player 1</div>
+      <button id="skip0">Pass</button>
+      <div class="hand"></div>
+    </div>
+
+    <!-- Player 2 -->
+    <div class="rack" id="rack1">
+      <div class="rackTitle">Player 2</div>
+      <button id="skip1">Pass</button>
+      <div class="hand"></div>
+    </div>
+
+  </div>
+</main>
+
+
+  <!-- =========================================================
+   BLOCK:55  – footer / status bar
+  ========================================================= -->
+  <footer><span id="status">Loading…</span></footer>
+
+  <!-- =========================================================
+   BLOCK:66  – data & helpers
+  ========================================================= -->
+  <script>
+  /* --- tile feed (from the conversation) -------------------- */
+  const tileData=[
+    {id:0,small:9,large:24},{id:1,small:9,large:16},{id:2,small:8,large:18},{id:3,small:7,large:40},
+    {id:4,small:4,large:10},{id:5,small:2,large:56},{id:6,small:8,large:27},{id:7,small:7,large:72},
+    {id:8,small:2,large:25},{id:9,small:2,large:15},{id:10,small:7,large:48},{id:11,small:3,large:35},
+    {id:12,small:3,large:36},{id:13,small:4,large:63},{id:14,small:6,large:32},{id:15,small:6,large:45},
+    {id:16,small:4,large:54},{id:17,small:3,large:14},{id:18,small:5,large:21},{id:19,small:5,large:24},
+    {id:20,small:5,large:64},{id:21,small:9,large:20},{id:22,small:6,large:28},{id:23,small:8,large:30},
+    {id:24,small:9,large:42},{id:25,small:7,large:12},{id:26,small:5,large:49},{id:27,small:3,large:81},
+    {id:28,small:2,large:36},{id:29,small:4,large:35},{id:30,small:6,large:16},{id:31,small:8,large:12}
+  ];
+
+  /* --- helpers ---------------------------------------------- */
+  const $          = s=>document.querySelector(s);
+  const shuffle    = a=>a.sort(()=>Math.random()-0.5);
+  const sortBySmall= a=>[...a].sort((x,y)=>x.small-y.small);
+  </script>
+
+<!-- =========================================================
+   BLOCK:77  – state  (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<script>
+const state = {
+  rows      : [[],[]],      // two board rows
+  hands     : [[],[]],      // players' hands
+  turn      : 0,            // whose turn
+  step      : 0,            // 0 choose row → 1 first tile → 2 second tile
+  chosenRow : null,
+  firstId   : null,         // <<< store TILE ID, not element
+  skipped   : [false,false],
+  finished  : false
+};
+</script>
+
+<!-- =========================================================
+   BLOCK:88  – rendering helpers  (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<script>
+function tileEl(tile, owner, highlight = false){
+  const d=document.createElement('div');
+  d.className='tile'+(highlight?' selected':'');
+  d.dataset.id    = tile.id;
+  d.dataset.owner = owner;           // 0 | 1 | 'board'
+  d.innerHTML = `
+    <div class="half top small">${tile.small}</div>
+    <div class="half large">${tile.large}</div>`;
+  return d;
+}
+
+/* board */
+function drawBoard(){
+  const board=$('#board');
+  board.innerHTML='';
+  state.rows.forEach((row,i)=>{
+    const div=document.createElement('div');
+    div.className='boardRow'+(state.chosenRow===i?' rowSelected':'');
+    div.dataset.row=i;
+    row.forEach(t=>div.appendChild(tileEl(t,'board')));
+    board.appendChild(div);
+  });
+}
+
+/* racks */
+function drawRacks(){
+  [0,1].forEach(p=>{
+    const rack=document.querySelector(`#rack${p}`);
+    rack.classList.toggle('active',state.turn===p&&!state.finished);
+    const hand=rack.querySelector('.hand');
+    hand.innerHTML='';
+    sortBySmall(state.hands[p]).forEach(t=>{
+      const hl = (t.id==state.firstId);
+      hand.appendChild(tileEl(t,p,hl));
+    });
+  });
+}
+
+/* potentials */
+function markPotentials(){
+  document.querySelectorAll('.tile.potential').forEach(el=>el.classList.remove('potential'));
+  if(state.chosenRow===null) return;
+  const top = state.rows[state.chosenRow].at(-1).small;
+  document.querySelectorAll('.tile').forEach(el=>{
+    const btm = +getTile(el.dataset.id).large;
+    const k   = btm/top;
+    if(Number.isInteger(k)&&k>=2&&k<=9) el.classList.add('potential');
+  });
+}
+
+/* status */
+function updateStatus(){
+  const txt = state.finished
+    ? (()=>{const [a,b]=state.hands.map(h=>h.length);
+             return a===b?'Draw!':(a<b?'Player 1 wins!':'Player 2 wins!');})()
+    : ['Choose a row','Pick first tile','Pick second tile'][state.step]
+      +` — Player ${state.turn+1}`;
+  $('#status').textContent = txt;
+  $('#showMult').disabled  = (state.chosenRow===null);
+}
+
+/* master render */
+function render(){
+  drawBoard();drawRacks();markPotentials();updateStatus();
+}
+</script>
+
+<!-- =========================================================
+   BLOCK:99  – game logic  (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<script>
+const getTile = id => tileData.find(t => t.id == id);
+
+function ruleOK(first, second, rowIdx){
+  const last = state.rows[rowIdx].at(-1);
+  return last.small * first.small === second.large;
+}
+
+function commitMove(firstEl, secondEl, rowIdx){
+  const t1 = getTile(firstEl.dataset.id);
+  const t2 = getTile(secondEl.dataset.id);
+
+  /* remove from hands if applicable */
+  [firstEl,secondEl].forEach(el=>{
+    const owner = +el.dataset.owner;
+    if(owner===0||owner===1){
+      const hand = state.hands[owner];
+      const i = hand.findIndex(t=>t.id==el.dataset.id);
+      if(i>-1) hand.splice(i,1);
+    }
+  });
+
+  state.rows[rowIdx].push(t1,t2);
+
+  /* reset turn data */
+  state.step=0; state.chosenRow=null; state.firstId=null;
+  state.skipped=[false,false];
+  if(!state.hands[0].length||!state.hands[1].length) state.finished=true;
+  else state.turn=(state.turn+1)%2;
+  render();
+}
+
+function chooseRow(idx){
+  if(state.finished||state.step!==0) return;
+  state.chosenRow=idx; state.step=1; render();
+}
+
+function handleTileClick(el){
+  if(state.finished) return;
+  if(state.step===0) return alert('Select a row first.');
+
+  if(state.step===1){                     // first tile
+    state.firstId = el.dataset.id;
+    state.step    = 2;
+    render();
+    return;
+  }
+
+  if(state.step===2){                     // second tile
+    const first   = getTile(state.firstId);
+    const second  = getTile(el.dataset.id);
+    if(ruleOK(first,second,state.chosenRow)){
+      commitMove(
+        document.querySelector(`.tile[data-id='${state.firstId}']`),
+        el,
+        state.chosenRow
+      );
+    }else{
+      alert('Rule not satisfied – pick again.');
+      state.step=1; state.firstId=null; render();
+    }
+  }
+}
+
+function pass(player){
+  if(state.finished||state.turn!==player) return;
+  state.skipped[player]=true;
+  state.firstId=null; state.step=0; state.chosenRow=null;
+  if(state.skipped[0]&&state.skipped[1]) state.finished=true;
+  else state.turn=(state.turn+1)%2;
+  render();
+}
+</script>
+
+
+
+<!-- =========================================================
+   BLOCK:1010  – events & bootstrap  (REPLACE ENTIRE BLOCK)
+========================================================= -->
+<script>
+function bindEvents(){
+  /* choose row */
+  document.addEventListener('click',e=>{
+    const row=e.target.closest('.boardRow');
+    if(row&&state.step===0) chooseRow(+row.dataset.row);
+  });
+
+  /* tile clicks (hands only) */
+  document.addEventListener('click',e=>{
+    const tile=e.target.closest('.tile');
+    if(tile&&tile.dataset.owner!=='board') handleTileClick(tile);
+  });
+
+  /* pass buttons */
+  $('#skip0').addEventListener('click',()=>pass(0));
+  $('#skip1').addEventListener('click',()=>pass(1));
+
+  /* multiples helper */
+  $('#showMult').addEventListener('click',()=>{
+    if(state.chosenRow===null) return;
+    const top = state.rows[state.chosenRow].at(-1).small;
+    const multis = Array.from({length:8},(_,i)=>top*(i+2)).join(', ');
+    alert(`Last top = ${top}\\nMultiples with 2–9: ${multis}`);
+  });
+}
+
+function setupGame(){
+  const deck=shuffle([...tileData]);
+  state.rows[0].push(deck.pop());  // seed rows
+  state.rows[1].push(deck.pop());
+  state.hands[0]=deck.splice(0,15);
+  state.hands[1]=deck.splice(0,15);
+  render();
+}
+
+/* initialise */
+bindEvents();
+setupGame();
+</script>
+
+
+
+
+
+</body>
+</html>

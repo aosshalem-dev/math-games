@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>משחק ניחוש מספרים</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    color: #2c3e50;
+    margin-bottom: 20px;
+  }
+
+  .game-container {
+    display: flex;
+    gap: 4px;
+    max-width: 900px;
+    width: 100%;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+  }
+
+  /* === Left panel: Numbers === */
+  .numbers-panel {
+    flex: 0 0 320px;
+    padding: 24px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .numbers-panel h2 {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 6px;
+  }
+
+  .numbers-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .number-circle {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: 3px solid #3498db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fff;
+    user-select: none;
+  }
+
+  .number-circle:hover {
+    background: #ebf5fb;
+    transform: scale(1.08);
+  }
+
+  .number-circle.eliminated {
+    background: #e8e8e8;
+    border-color: #bbb;
+    color: #bbb;
+    text-decoration: line-through;
+    transform: scale(0.92);
+  }
+
+  .number-circle.eliminated:hover {
+    background: #ddd;
+    transform: scale(0.96);
+  }
+
+  .btn-new-game {
+    padding: 12px 28px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    background: #27ae60;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 8px;
+  }
+
+  .btn-new-game:hover {
+    background: #219a52;
+  }
+
+  /* === Divider === */
+  .divider {
+    width: 3px;
+    background: repeating-linear-gradient(
+      to bottom,
+      #ccc 0px,
+      #ccc 6px,
+      transparent 6px,
+      transparent 12px
+    );
+  }
+
+  /* === Right panel: Questions === */
+  .questions-panel {
+    flex: 1;
+    padding: 24px;
+    background: #fff;
+  }
+
+  .questions-panel h2 {
+    font-size: 1.3rem;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    border-bottom: 3px solid #e67e22;
+    padding-bottom: 6px;
+    text-align: center;
+  }
+
+  .question-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 4px;
+    border-bottom: 1px solid #eee;
+    gap: 10px;
+  }
+
+  .question-row:last-child {
+    border-bottom: none;
+  }
+
+  .q-number {
+    font-weight: bold;
+    color: #7f8c8d;
+    min-width: 28px;
+    text-align: center;
+    font-size: 0.95rem;
+  }
+
+  .q-text {
+    flex: 1;
+    font-size: 1.05rem;
+    color: #2c3e50;
+  }
+
+  .q-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #e67e22;
+    background: #fef9f4;
+    color: #e67e22;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .q-btn:hover {
+    background: #e67e22;
+    color: #fff;
+  }
+
+  .q-btn.revealed {
+    cursor: default;
+    font-size: 0.85rem;
+    font-weight: bold;
+    width: auto;
+    min-width: 36px;
+    padding: 0 10px;
+    border-radius: 18px;
+  }
+
+  .q-btn.revealed.yes {
+    background: #27ae60;
+    border-color: #27ae60;
+    color: #fff;
+  }
+
+  .q-btn.revealed.no {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    color: #fff;
+  }
+
+  /* === Win state === */
+  .win-banner {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 24px;
+    background: #27ae60;
+    color: #fff;
+    font-size: 1.3rem;
+    font-weight: bold;
+    border-radius: 12px;
+    text-align: center;
+    animation: popIn 0.3s ease;
+  }
+
+  .win-banner.show { display: block; }
+
+  @keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .secret-hint {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #888;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>משחק ניחוש מספרים</h1>
+
+<div class="game-container">
+  <!-- Numbers panel -->
+  <div class="numbers-panel">
+    <h2>בחרו מספרים למחיקה</h2>
+    <div class="numbers-grid" id="numbersGrid"></div>
+    <button class="btn-new-game" onclick="newGame()">משחק חדש</button>
+    <div class="win-banner" id="winBanner">מצאתם! 🎉</div>
+    <div class="secret-hint" id="secretHint"></div>
+  </div>
+
+  <!-- Dashed divider -->
+  <div class="divider"></div>
+
+  <!-- Questions panel -->
+  <div class="questions-panel">
+    <h2>בנק שאלות</h2>
+    <div id="questionsList"></div>
+  </div>
+</div>
+
+<script>
+// Hebrew number names for the "ש" question
+const hebrewNames = {
+  1:'אחד', 2:'שניים', 3:'שלוש', 4:'ארבע', 5:'חמש',
+  6:'שש', 7:'שבע', 8:'שמונה', 9:'תשע', 10:'עשר',
+  11:'אחד עשרה', 12:'שנים עשרה', 13:'שלוש עשרה',
+  14:'ארבע עשרה', 15:'חמש עשרה', 16:'שש עשרה',
+  17:'שבע עשרה', 18:'שמונה עשרה', 19:'תשע עשרה', 20:'עשרים'
+};
+
+// Question definitions
+const questions = [
+  { text: 'האם המספר זוגי?',              check: n => n % 2 === 0 },
+  { text: 'האם המספר גדול מ-15?',         check: n => n > 15 },
+  { text: 'האם ספרת היחידות גדולה מ-5?',  check: n => (n % 10) > 5 },
+  { text: 'האם המספר מתחלק ב-3?',         check: n => n % 3 === 0 },
+  { text: 'האם המספר מתחלק ב-4?',         check: n => n % 4 === 0 },
+  { text: 'האם המספר מתחלק ב-5?',         check: n => n % 5 === 0 },
+  { text: 'האם יש במספר את האות "ש"?',    check: n => hebrewNames[n].includes('ש') },
+  { text: 'האם סכום הספרות הוא זוגי?',    check: n => digitSum(n) % 2 === 0 },
+  { text: 'האם המספר דו-ספרתי?',          check: n => n >= 10 },
+];
+
+let secretNumber;
+let eliminated;
+
+function digitSum(n) {
+  return String(n).split('').reduce((s, d) => s + Number(d), 0);
+}
+
+function newGame() {
+  secretNumber = Math.floor(Math.random() * 20) + 1;
+  eliminated = new Set();
+  renderNumbers();
+  renderQuestions();
+  document.getElementById('winBanner').classList.remove('show');
+  document.getElementById('secretHint').textContent = '';
+}
+
+function renderNumbers() {
+  const grid = document.getElementById('numbersGrid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 20; i++) {
+    const circle = document.createElement('div');
+    circle.className = 'number-circle' + (eliminated.has(i) ? ' eliminated' : '');
+    circle.textContent = i;
+    circle.onclick = () => toggleNumber(i);
+    grid.appendChild(circle);
+  }
+  checkWin();
+}
+
+function toggleNumber(n) {
+  if (eliminated.has(n)) {
+    eliminated.delete(n);
+  } else {
+    eliminated.add(n);
+  }
+  renderNumbers();
+}
+
+function checkWin() {
+  const remaining = [];
+  for (let i = 1; i <= 20; i++) {
+    if (!eliminated.has(i)) remaining.push(i);
+  }
+  const banner = document.getElementById('winBanner');
+  const hint = document.getElementById('secretHint');
+  if (remaining.length === 1 && remaining[0] === secretNumber) {
+    banner.textContent = `מצאתם! המספר הוא ${secretNumber} 🎉`;
+    banner.classList.add('show');
+    hint.textContent = '';
+  } else if (remaining.length === 1 && remaining[0] !== secretNumber) {
+    banner.textContent = `לא נכון... המספר היה ${secretNumber}`;
+    banner.style.background = '#e74c3c';
+    banner.classList.add('show');
+    hint.textContent = '';
+  } else {
+    banner.classList.remove('show');
+    banner.style.background = '#27ae60';
+    hint.textContent = `נשארו ${remaining.length} מספרים`;
+  }
+}
+
+function renderQuestions() {
+  const list = document.getElementById('questionsList');
+  list.innerHTML = '';
+  questions.forEach((q, i) => {
+    const row = document.createElement('div');
+    row.className = 'question-row';
+
+    const num = document.createElement('span');
+    num.className = 'q-number';
+    num.textContent = (i + 1) + '.';
+
+    const text = document.createElement('span');
+    text.className = 'q-text';
+    text.textContent = q.text;
+
+    const btn = document.createElement('button');
+    btn.className = 'q-btn';
+    btn.textContent = '?';
+    btn.onclick = () => revealAnswer(btn, q);
+
+    row.appendChild(num);
+    row.appendChild(text);
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+
+function revealAnswer(btn, question) {
+  if (btn.classList.contains('revealed')) return;
+  const answer = question.check(secretNumber);
+  btn.textContent = answer ? 'כן' : 'לא';
+  btn.classList.add('revealed', answer ? 'yes' : 'no');
+}
+
+// Start
+newGame();
+</script>
+
+</body>
+</html>

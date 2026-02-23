@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>סידורי ישיבה ברכב</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);user-select:none;-webkit-user-select:none;direction:rtl}
+
+/* ═══ Auth ═══ */
+.auth-screen{position:fixed;inset:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);display:flex;justify-content:center;align-items:center;z-index:1000}
+.auth-container{background:#fff;border-radius:20px;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:500px;width:90%;text-align:center;direction:rtl}
+.auth-container h1{font-size:28px;color:#333;margin-bottom:24px}
+.auth-loader{border:12px solid #f3f3f3;border-top:12px solid #667eea;border-radius:50%;width:80px;height:80px;animation:spin 1.5s linear infinite;margin:40px auto}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.auth-btn{padding:14px 28px;font-size:17px;font-weight:700;color:#fff;border:none;border-radius:8px;cursor:pointer;margin:6px;display:inline-block;transition:background .2s}
+.auth-btn.green{background:#4caf50}.auth-btn.green:hover{background:#43a047}
+.auth-btn.blue{background:#2196f3}.auth-btn.blue:hover{background:#1e88e5}
+.auth-btn.red{background:#f44336}.auth-btn.red:hover{background:#e53935}
+.auth-btn.full{width:100%;margin:6px 0}
+.user-info{background:#e3f2fd;padding:14px;border-radius:8px;margin:16px 0;text-align:right}
+.user-info strong{color:#1976d2}
+.error-msg{color:#f44336;font-size:15px;margin:10px 0;padding:10px;background:#ffebee;border-radius:6px;display:none}
+#userForm{text-align:right;max-width:400px;margin:0 auto}
+#userForm label{display:block;margin-top:12px;margin-bottom:4px;font-size:16px;color:#333}
+#userForm input{width:100%;padding:10px;font-size:16px;border:2px solid #ddd;border-radius:8px;direction:rtl}
+#userForm input:focus{outline:none;border-color:#667eea}
+
+/* ═══ App ═══ */
+.app{display:none;flex-direction:column;height:100vh}
+
+/* ─── Toolbar ─── */
+.toolbar{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.96);padding:6px 14px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.15);z-index:50;flex-wrap:wrap}
+.tool-question{font-size:13px;color:#444;font-weight:600;flex:1;min-width:180px}
+.tool-question b{color:#667eea}
+.tool-sep{width:1px;height:34px;background:#ddd;margin:0 2px}
+.tool-girls{display:flex;gap:6px;align-items:center}
+.tool-girls-label{font-size:11px;color:#999;font-weight:600}
+.pal-girl{width:52px;height:62px;border:2.5px solid;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#fff;cursor:grab;transition:all .15s;touch-action:none}
+.pal-girl:hover{transform:scale(1.1);box-shadow:0 3px 12px rgba(0,0,0,.2)}
+.pal-girl.used{opacity:.2;cursor:not-allowed;pointer-events:none}
+.pal-girl.dragging{opacity:.3}
+.pal-girl .pal-name{font-size:9px;font-weight:700}
+.tool-btns{display:flex;gap:6px;align-items:center}
+.counter-badge{font-size:13px;color:#667eea;font-weight:700;padding:4px 10px;background:rgba(102,126,234,.08);border-radius:6px}
+.btn{padding:7px 16px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn:active{transform:scale(.95)}
+.btn-new{background:#4caf50;color:#fff}.btn-new:hover{background:#43a047}
+.btn-check{background:#667eea;color:#fff}.btn-check:hover{background:#5a6fd6}
+.btn-reset{background:#ef5350;color:#fff;font-size:12px;padding:5px 10px}.btn-reset:hover{background:#e53935}
+.btn-finish{padding:10px 24px;font-size:15px;font-weight:700;border:none;border-radius:10px;cursor:pointer;background:#ff9800;color:#fff;box-shadow:0 3px 12px rgba(255,152,0,.35);transition:all .15s}
+.btn-finish:hover:not(:disabled){background:#f57c00;transform:translateY(-1px)}
+.btn-finish:disabled{background:#ccc;cursor:not-allowed;box-shadow:none}
+.btn-finish:active:not(:disabled){transform:scale(.96)}
+
+/* ─── Main area ─── */
+.main-area{flex:1;position:relative;overflow:hidden}
+
+/* ─── Car dock ─── */
+.car-dock{position:absolute;top:20px;right:20px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:12px}
+.car-dock.hidden{display:none}
+
+/* ─── CAR SHAPE ─── */
+.car-outer{position:relative;width:340px;height:360px}
+/* Main body */
+.car-body-bg{position:absolute;inset:0;background:linear-gradient(180deg,#b0bec5 0%,#cfd8dc 15%,#eceff1 50%,#cfd8dc 85%,#b0bec5 100%);border:3px solid #78909c;border-radius:50px 50px 35px 35px;box-shadow:0 8px 30px rgba(0,0,0,.2),inset 0 3px 8px rgba(255,255,255,.5)}
+
+/* Front section (top) - hood */
+.car-hood{position:absolute;top:0;left:20px;right:20px;height:60px;background:linear-gradient(180deg,#90a4ae,#b0bec5);border-radius:45px 45px 0 0;border:2px solid #78909c;border-bottom:none}
+/* Headlights */
+.headlight{position:absolute;top:12px;width:30px;height:18px;border-radius:12px;background:radial-gradient(ellipse,#fff9c4,#ffd54f);border:2px solid #fbc02d;box-shadow:0 0 12px rgba(255,213,79,.6)}
+.headlight.l{right:15px}.headlight.r{left:15px}
+/* Grille */
+.grille{position:absolute;top:38px;left:50%;transform:translateX(-50%);width:80px;height:10px;background:#546e7a;border-radius:4px;border:1px solid #455a64}
+.grille::before,.grille::after{content:'';position:absolute;top:2px;width:20px;height:6px;background:#37474f;border-radius:2px}
+.grille::before{left:8px}.grille::after{right:8px}
+
+/* Windshield */
+.windshield{position:absolute;top:60px;left:30px;right:30px;height:30px;background:linear-gradient(180deg,rgba(100,181,246,.55),rgba(100,181,246,.2));border-radius:8px 8px 4px 4px;border:2px solid rgba(100,181,246,.4)}
+
+/* Rear section (bottom) */
+.car-rear{position:absolute;bottom:0;left:20px;right:20px;height:45px;background:linear-gradient(0deg,#90a4ae,#b0bec5);border-radius:0 0 30px 30px;border:2px solid #78909c;border-top:none}
+/* Taillights */
+.taillight{position:absolute;bottom:12px;width:24px;height:14px;border-radius:8px;background:radial-gradient(ellipse,#ef9a9a,#e53935);border:2px solid #c62828;box-shadow:0 0 8px rgba(229,57,53,.4)}
+.taillight.l{right:12px}.taillight.r{left:12px}
+
+/* Wheels */
+.wheel{position:absolute;width:26px;height:44px;background:linear-gradient(180deg,#263238,#37474f,#263238);border-radius:8px;border:2px solid #1a1a1a;box-shadow:2px 0 6px rgba(0,0,0,.3)}
+.wheel::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:#546e7a;border:1px solid #455a64}
+.wfl{top:70px;right:-16px}.wfr{top:70px;left:-16px}
+.wbl{bottom:60px;right:-16px}.wbr{bottom:60px;left:-16px}
+
+/* Mirrors */
+.mirror{position:absolute;top:82px;width:20px;height:14px;background:linear-gradient(180deg,#90a4ae,#78909c);border-radius:50%;border:1px solid #607d8b;box-shadow:1px 1px 4px rgba(0,0,0,.2)}
+.mirror.l{right:-14px}.mirror.r{left:-14px}
+
+/* Steering wheel */
+.steering{position:absolute;z-index:3;width:38px;height:38px;border:4px solid #455a64;border-radius:50%;top:106px}
+.steering::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:16px;height:4px;background:#455a64;border-radius:2px}
+.steering::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:4px;height:16px;background:#455a64;border-radius:2px}
+.steering.driver-right{right:52px}
+.steering.driver-left{left:52px}
+
+/* Seats container inside car */
+.seats-area{position:absolute;top:94px;left:30px;right:30px;bottom:50px;display:flex;flex-direction:column;justify-content:center;gap:10px;z-index:2}
+.car-row{display:flex;gap:10px;justify-content:center;align-items:center}
+.front-seat{width:90px;height:90px;border:3px solid;border-radius:14px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);transition:all .2s;backdrop-filter:blur(2px);overflow:hidden}
+.swap-zone{width:42px;height:42px;border-radius:50%;border:2.5px solid #1976d2;background:rgba(25,118,210,.06);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0}
+.swap-zone:hover{background:#1976d2;box-shadow:0 3px 12px rgba(25,118,210,.35)}.swap-zone:hover svg path,.swap-zone:hover svg line{stroke:#fff}
+.seat{width:90px;height:90px;border:3px dashed #90a4ae;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;background:rgba(255,255,255,.4);backdrop-filter:blur(2px);overflow:hidden}
+.seat.occupied{border-style:solid;background:rgba(255,255,255,.85);cursor:pointer}
+.seat.drop-hover{border-color:#667eea;background:rgba(102,126,234,.18);box-shadow:0 0 20px rgba(102,126,234,.4)}
+.seat .seat-label{font-size:20px;color:#b0bec5}
+
+/* ─── Floating mini-cards ─── */
+.mini-card{position:absolute;background:#fff;border:2px solid #cfd8dc;border-radius:14px;padding:10px 14px 8px;cursor:grab;touch-action:none;transition:box-shadow .15s;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:5}
+.mini-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.18);border-color:#90a4ae;z-index:6}
+.mini-card.duplicate{border-color:#ef9a9a;background:#fff5f5}
+.mini-card.dragging-mini{box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:100;cursor:grabbing}
+.mini-num{position:absolute;top:2px;right:6px;font-size:9px;color:#aaa;font-weight:700}
+.mini-del{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#ef5350;color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.mini-card:hover .mini-del{opacity:1}
+.mini-row{display:flex;justify-content:center;gap:3px;margin:1px 0}
+.mini-seat{width:50px;height:46px;border-radius:8px;border:1.5px solid #ddd;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+/* ─── Drag ghost ─── */
+.drag-ghost{position:fixed;pointer-events:none;z-index:1000;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 24px rgba(0,0,0,.35);background:#fff;border:3px solid;overflow:hidden}
+
+/* ─── Toast ─── */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:16px;font-weight:700;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.15)}
+.toast.show{opacity:1}
+.toast.warn{background:#fff3e0;color:#e65100;border:2px solid #ffb74d}
+.toast.success{background:#e8f5e9;color:#2e7d32;border:2px solid #81c784}
+.toast.err{background:#ffebee;color:#c62828;border:2px solid #ef9a9a}
+
+/* ─── Overlay ─── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;justify-content:center;align-items:center}
+.overlay.show{display:flex}
+.result-box{background:#fff;border-radius:20px;padding:32px;text-align:center;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.result-box h2{font-size:26px;margin-bottom:10px}
+.result-box p{font-size:18px;line-height:1.6;margin-bottom:14px}
+
+.avatar{display:flex;align-items:center;justify-content:center}
+.avatar img{display:block;border-radius:50%}
+
+/* ═══ Phone ═══ */
+@media(max-width:767px){
+  .toolbar{padding:4px 8px;gap:4px}
+  .tool-question{font-size:11px;min-width:100%;text-align:center;order:-1}
+  .tool-sep{display:none}
+  .pal-girl{width:42px;height:50px}.pal-girl .pal-name{font-size:8px}
+  .btn{padding:5px 10px;font-size:12px}
+  .car-dock{right:8px;top:8px}
+  .car-outer{width:240px;height:260px}
+  .car-hood{height:42px}.headlight{width:22px;height:14px;top:8px}
+  .windshield{top:42px;height:22px}
+  .car-rear{height:32px}
+  .seats-area{top:66px;bottom:36px;left:22px;right:22px}
+  .front-seat,.seat{width:64px;height:64px}
+  .swap-zone{width:30px;height:30px}
+  .wfl{top:50px}.wfr{top:50px}.wbl{bottom:42px}.wbr{bottom:42px}
+  .mirror{top:58px}
+  .mini-seat{width:40px;height:36px}
+  .auth-container{padding:24px}.auth-container h1{font-size:22px}
+  .btn-finish{padding:8px 16px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-container">
+    <h1>סידורי ישיבה ברכב</h1>
+    <div id="auth-loader" class="auth-loader"></div>
+    <div id="signInPrompt" style="display:none">
+      <p style="margin-bottom:12px">נדרש להתחבר ליישומטיקה כדי להמשיך</p>
+      <button class="auth-btn blue full" id="signInYisumaticaBtn">התחברות / הרשמה להזדהות אחידה</button>
+      <button class="auth-btn green full" id="signInManualBtn" style="margin-top:8px">התחברות ידנית</button>
+    </div>
+    <div id="confirmPrompt" style="display:none">
+      <p style="margin-bottom:16px">האם הפרטים הבאים נכונים?</p>
+      <div class="user-info"><p><strong>השם:</strong> <span id="displayUserName"></span></p><p><strong>סמל מוסד:</strong> <span id="displaySemelMosad"></span></p></div>
+      <div style="margin-top:20px"><button class="auth-btn green" id="confirmYesButton">כן, זה אני</button><button class="auth-btn red" id="confirmNoButton">לא, זה לא אני</button></div>
+    </div>
+    <div id="userForm" style="display:none">
+      <div class="error-msg" id="errorMessage"></div>
+      <div style="margin-bottom:20px;text-align:center"><button class="auth-btn blue full" id="useYisumaticaButton">התחברות דרך הזדהות אחידה</button></div>
+      <p style="margin-bottom:14px">או הזינו את הפרטים שלכם:</p>
+      <form id="userDetailsForm">
+        <label for="studentName">שם מלא: <span style="color:#f44336">*</span></label><input type="text" id="studentName" required>
+        <label for="studentId">תעודת זהות:</label><input type="text" id="studentId">
+        <label for="semelMosadDisplay">סמל מוסד:</label><input type="text" id="semelMosadDisplay">
+        <div style="margin-top:16px"><button type="submit" class="auth-btn green">אישור והמשך</button><button type="button" class="auth-btn red" id="cancelFormButton">ביטול</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Game -->
+<div class="app" id="app">
+  <div class="toolbar">
+    <div class="tool-girls" id="palette"><span class="tool-girls-label">גררו:</span></div>
+    <div class="tool-sep"></div>
+    <div class="tool-question"><b>רותי</b> ו<b>דוד</b> (הורים) מלפנים, 3 בנות מאחור. מצאו את <b>כל</b> הסידורים!</div>
+    <div class="tool-sep"></div>
+    <span class="counter-badge" id="counter">0 סידורים</span>
+    <div class="tool-sep"></div>
+    <div class="tool-btns">
+      <button class="btn btn-new" onclick="newCar()">רכב חדש</button>
+      <button class="btn-finish" id="btnFinish" disabled onclick="finishCar()">&#10003; סיימתי עם הרכב</button>
+      <button class="btn btn-check" onclick="submitAll()">סיימתי! בדקו</button>
+      <button class="btn btn-reset" onclick="resetAll()">אפס</button>
+    </div>
+  </div>
+  <div class="main-area" id="mainArea">
+    <div class="car-dock hidden" id="activeCar">
+      <div class="car-outer">
+        <div class="car-body-bg"></div>
+        <!-- Front -->
+        <div class="car-hood">
+          <div class="headlight l"></div>
+          <div class="headlight r"></div>
+          <div class="grille"></div>
+        </div>
+        <div class="windshield"></div>
+        <!-- Rear -->
+        <div class="car-rear">
+          <div class="taillight l"></div>
+          <div class="taillight r"></div>
+        </div>
+        <!-- Wheels -->
+        <div class="wheel wfl"></div><div class="wheel wfr"></div>
+        <div class="wheel wbl"></div><div class="wheel wbr"></div>
+        <div class="mirror l"></div><div class="mirror r"></div>
+        <!-- Steering wheel -->
+        <div class="steering driver-right" id="steeringWheel"></div>
+        <!-- Seats -->
+        <div class="seats-area">
+          <div class="car-row">
+            <div class="front-seat" id="seat0"></div>
+            <div class="swap-zone" onclick="swapDriver()" title="החלף נהג"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M6,11 L2,7 L6,3" stroke="#1976d2" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M16,11 L20,15 L16,19" stroke="#1976d2" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="2" y1="7" x2="20" y2="7" stroke="#1976d2" stroke-width="2" stroke-linecap="round"/><line x1="2" y1="15" x2="20" y2="15" stroke="#1976d2" stroke-width="2" stroke-linecap="round"/></svg></div>
+            <div class="front-seat" id="seat1"></div>
+          </div>
+          <div class="car-row">
+            <div class="seat" id="seat2"><span class="seat-label">&#9675;</span></div>
+            <div class="seat" id="seat3"><span class="seat-label">&#9675;</span></div>
+            <div class="seat" id="seat4"><span class="seat-label">&#9675;</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="overlay" id="overlay"><div class="result-box" id="resultBox"></div></div>
+
+<script>
+const MEMBERS={mom:{id:'mom',name:'רותי',color:'#e91e63'},dad:{id:'dad',name:'דוד',color:'#1976d2'},noa:{id:'noa',name:'נועה',color:'#9c27b0'},mia:{id:'mia',name:'מיה',color:'#4caf50'},shira:{id:'shira',name:'שירה',color:'#ff9800'}};
+const GIRLS=['noa','mia','shira'];
+const TOTAL=12;
+
+// ── Character Images (DiceBear Adventurer API) ──
+const AVATAR_STYLE='adventurer';
+const AVATAR_SEEDS={mom:'Aneka',dad:'Felix',noa:'Sophia',mia:'Lily',shira:'Zoe'};
+function avatarIMG(id,size){
+  const s=size||56;const m=MEMBERS[id];const seed=AVATAR_SEEDS[id]||id;
+  const url=`https://api.dicebear.com/9.x/${AVATAR_STYLE}/svg?seed=${seed}&backgroundColor=transparent`;
+  return `<img src="${url}" width="${s}" height="${s}" style="border-radius:50%;pointer-events:none;display:block;background:${m.color}15;" alt="${m.name}" draggable="false">`;
+}
+// Preload all avatars
+Object.values(AVATAR_SEEDS).forEach(seed=>{const i=new Image();i.src=`https://api.dicebear.com/9.x/${AVATAR_STYLE}/svg?seed=${seed}&backgroundColor=transparent`});
+
+// ═══ AUTH ═══
+const SIGN_IN_URL="https://www.yisumatica.org.il/modules/frontend/views/main/resubmitLogin3.php";
+let _upSnap=null,_authDone=false,sessionId='',sessionStart=0,studentId='',studentName='',semelMosad='';
+function _el(id){return document.getElementById(id)}
+function _show(id){const e=_el(id);if(e)e.style.display='block'}
+function _hide(id){const e=_el(id);if(e)e.style.display='none'}
+function showAuthLoader(){_el('auth-screen').style.display='flex';_show('auth-loader');_hide('signInPrompt');_hide('confirmPrompt');_hide('userForm')}
+function showSignIn(){_el('auth-screen').style.display='flex';_hide('auth-loader');_show('signInPrompt');_hide('confirmPrompt');_hide('userForm')}
+function showConfirm(n,s){_el('auth-screen').style.display='flex';_hide('auth-loader');_hide('signInPrompt');_show('confirmPrompt');_hide('userForm');_el('displayUserName').textContent=n||'לא זמין';_el('displaySemelMosad').textContent=s||'לא זמין'}
+function showManualForm(ps){_el('auth-screen').style.display='flex';_hide('auth-loader');_hide('signInPrompt');_hide('confirmPrompt');_show('userForm');_el('studentName').value='';_el('studentId').value='';_el('semelMosadDisplay').value=ps||''}
+function showAuthError(m){const e=_el('errorMessage');e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',4000)}
+function _parseChk(raw){const t=(raw||'').trim();if(!t)return null;const doc=new DOMParser().parseFromString(t,'text/html');const bc=doc.querySelector('body')?doc.querySelector('body').textContent.trim():t;if(!bc||bc==='NO')return null;let d={};try{d=Object.fromEntries(new URLSearchParams(bc).entries())}catch(e){return null}if(d.mail==='guest@yisumatica.org.il')return null;return{id:d.mail||'',name:d.name||'',ip:d.ip||'',user:d.user||'',semelMosad:d.semel_mosad||d.semelMossad||d.semelMosad||'12345'}}
+function _getUrlData(){const p=new URLSearchParams(location.search);const has=p.get('has_data')==='1'||p.get('data_in_url')==='1';const name=p.get('name_force')||p.get('name')||'';const id=p.get('mail_force')||p.get('student_id_force')||p.get('mail')||'';const s=p.get('semel_mosad_force')||p.get('semel_mosad')||'';if(!has&&!name&&!id)return null;return{id,name,ip:'',user:'',semelMosad:s||'12345'}}
+async function checkSession(){const ud=_getUrlData();if(ud){_upSnap=ud;showConfirm(ud.name||ud.id,ud.semelMosad);return}try{showAuthLoader();const r=await fetch('https://www.yisumatica.org.il/chk_session',{credentials:'include',cache:'no-store'});const raw=await r.text();const p=_parseChk(raw);if(!p){showSignIn();return}_upSnap=p;showConfirm(p.name||p.id,p.semelMosad)}catch(e){showSignIn()}}
+function completeAuth(u){if(_authDone)return;_authDone=true;studentName=(u.name||'').trim()||'Student';studentId=(u.id||'').trim()||studentName||'anon_'+Date.now();semelMosad=(u.semelMosad||'').trim()||'12345';sessionId=studentId+'_'+Date.now();sessionStart=Date.now();_el('auth-screen').style.display='none';_el('app').style.display='flex';setInterval(flushEvents,15000);window.addEventListener('beforeunload',flushEvents);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushEvents()});newCar()}
+function wireAuth(){
+_el('signInYisumaticaBtn').onclick=()=>{try{localStorage.setItem('yisumatica_redirect',location.href)}catch(e){}location.href=SIGN_IN_URL};
+_el('signInManualBtn').onclick=()=>showManualForm('');
+_el('useYisumaticaButton').onclick=()=>{try{localStorage.setItem('yisumatica_redirect',location.href)}catch(e){}location.href=SIGN_IN_URL};
+_el('confirmYesButton').onclick=()=>{if(!_upSnap){showManualForm('');return}completeAuth(_upSnap)};
+_el('confirmNoButton').onclick=()=>showManualForm(_upSnap?_upSnap.semelMosad:'');
+_el('userDetailsForm').onsubmit=e=>{e.preventDefault();const n=(_el('studentName').value||'').trim();if(!n){showAuthError('אנא הזינו שם מלא');return}completeAuth({name:n,id:(_el('studentId').value||'').trim(),semelMosad:(_el('semelMosadDisplay').value||'').trim()})};
+_el('cancelFormButton').onclick=()=>{if(_upSnap)showConfirm(_upSnap.name||_upSnap.id,_upSnap.semelMosad);else showSignIn()};
+}
+
+// ═══ EVENTS ═══
+let pendingEvents=[];
+function logEvent(t,d){pendingEvents.push({type:t,data:d||{},time:Date.now()-sessionStart})}
+function flushEvents(){if(!pendingEvents.length)return;const b=pendingEvents.slice();pendingEvents=[];const p={session_id:sessionId,student_id:studentId,student_name:studentName,semel_mosad:semelMosad,total_cars:arrangements.length,unique_arrangements:arrangements.filter(a=>!a.isDuplicate).length,duplicate_count:arrangements.filter(a=>a.isDuplicate).length,device_type:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'mobile':'desktop',events:b};if(document.visibilityState==='hidden')navigator.sendBeacon('save_events.php',JSON.stringify(p));else fetch('save_events.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).catch(()=>{pendingEvents=b.concat(pendingEvents)})}
+
+// ═══ GAME ═══
+let carId=0,frontSeats=['mom','dad'],backSeats=[null,null,null],arrangements=[],activeCarVisible=false;
+
+function newCar(){carId++;frontSeats=['mom','dad'];backSeats=[null,null,null];activeCarVisible=true;logEvent('new_car',{car_id:carId});render()}
+function swapDriver(){frontSeats=[frontSeats[1],frontSeats[0]];logEvent('swap_driver',{car_id:carId,front:[...frontSeats]});render()}
+function removeSeat(i){if(backSeats[i]===null)return;logEvent('remove',{member:backSeats[i],seat:i,car_id:carId});backSeats[i]=null;render()}
+
+function finishCar(){
+  if(backSeats.includes(null))return;
+  const key=frontSeats.join(',')+' |'+backSeats.join(',');
+  const isDuplicate=arrangements.some(a=>a.front.join(',')+' |'+a.back.join(',')===key);
+  const area=_el('mainArea').getBoundingClientRect();
+  const dock=_el('activeCar').getBoundingClientRect();
+  const cW=160,cH=120,gap=12;
+  const col=arrangements.length%3;
+  const row=Math.floor(arrangements.length/3);
+  let x=dock.left-area.left-cW-40-col*(cW+gap);
+  let y=20+row*(cH+gap);
+  if(x<10){x=10+col*(cW+gap);y=dock.bottom-area.top+20+Math.floor((arrangements.length-Math.ceil((dock.left-area.left-50)/(cW+gap))*3)/3)*(cH+gap)}
+  arrangements.push({id:carId,front:[...frontSeats],back:[...backSeats],isDuplicate,x:Math.max(8,x),y:Math.max(8,y)});
+  logEvent('car_done',{car_id:carId,arrangement:[...frontSeats,...backSeats],is_duplicate:isDuplicate});
+  showToast(isDuplicate?'סידור כפול! נרשם כטעות':'סידור נוסף!',isDuplicate?'warn':'success');
+  activeCarVisible=false;render();setTimeout(()=>newCar(),350);
+}
+
+function deleteArrangement(idx){logEvent('delete_car',{car_id:arrangements[idx].id});arrangements.splice(idx,1);renderMiniCards();renderCounter()}
+function resetAll(){if(arrangements.length>0&&!confirm('למחוק את כל הסידורים ולהתחיל מחדש?'))return;logEvent('reset',{});arrangements=[];carId=0;activeCarVisible=false;_el('mainArea').querySelectorAll('.mini-card').forEach(c=>c.remove());render();setTimeout(()=>newCar(),200)}
+
+function submitAll(){
+  const total=arrangements.length,unique=arrangements.filter(a=>!a.isDuplicate).length,dupes=total-unique;
+  if(!total){showToast('הוסיפו לפחות סידור אחד!','err');return}
+  logEvent('submit',{total,unique,dupes,correct:unique===TOTAL});flushEvents();
+  const box=_el('resultBox');
+  if(unique===TOTAL)box.innerHTML=`<h2 style="color:#4caf50">&#127881; מצוין!</h2><p>מצאתם את כל <strong>${TOTAL}</strong> הסידורים!<br>2 &times; 6 = 12</p>${dupes>0?`<p style="font-size:14px;color:#888">(${dupes} כפולים)</p>`:''}<button class="btn btn-new" onclick="closeOverlay()">סגור</button>`;
+  else box.innerHTML=`<h2 style="color:#ff9800">&#129300; ${unique>TOTAL?'יותר מדי...':'עוד קצת...'}</h2><p>מצאתם <strong>${unique}</strong> מתוך <strong>${TOTAL}</strong>.<br>${unique<TOTAL?`חסרים <strong>${TOTAL-unique}</strong>!`:'בדקו כפולים.'}</p>${dupes>0?`<p style="font-size:14px;color:#888">(${dupes} כפולים)</p>`:''}<button class="btn btn-check" onclick="closeOverlay()">חזרה</button>`;
+  _el('overlay').classList.add('show');
+}
+function closeOverlay(){_el('overlay').classList.remove('show')}
+let toastTimer=null;
+function showToast(msg,type){const t=_el('toast');t.textContent=msg;t.className='toast show '+type;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='toast',2200)}
+
+// ═══ RENDER ═══
+function render(){renderActiveCar();renderPalette();renderMiniCards();renderCounter();_el('btnFinish').disabled=backSeats.includes(null)}
+function renderCounter(){const u=arrangements.filter(a=>!a.isDuplicate).length;_el('counter').textContent=arrangements.length?`${u} סידורים`+(arrangements.length>u?` (${arrangements.length-u} כפולים)`:''):'0 סידורים'}
+
+function renderActiveCar(){
+  const car=_el('activeCar');if(!activeCarVisible){car.classList.add('hidden');return}car.classList.remove('hidden');
+  for(let i=0;i<2;i++){const el=_el('seat'+i),m=MEMBERS[frontSeats[i]];el.innerHTML=`<div class="avatar">${avatarIMG(m.id,70)}</div>`;el.style.borderColor=m.color;el.style.background=m.color+'15'}
+  for(let i=0;i<3;i++){const el=_el('seat'+(i+2)),mid=backSeats[i];if(mid){const m=MEMBERS[mid];el.innerHTML=`<div class="avatar">${avatarIMG(mid,70)}</div>`;el.style.borderColor=m.color;el.style.background=m.color+'15';el.className='seat occupied';el.onclick=()=>removeSeat(i)}else{el.innerHTML='<span class="seat-label">&#9675;</span>';el.style.borderColor='';el.style.background='';el.className='seat';el.onclick=null}}
+}
+
+function renderPalette(){
+  const pal=_el('palette');pal.innerHTML='<span class="tool-girls-label">גררו:</span>';
+  GIRLS.forEach(gid=>{const m=MEMBERS[gid],used=backSeats.includes(gid);const div=document.createElement('div');div.className='pal-girl'+(used?' used':'');div.style.borderColor=m.color;div.dataset.member=gid;div.innerHTML=`<div class="avatar">${avatarIMG(gid,36)}</div><span class="pal-name" style="color:${m.color}">${m.name}</span>`;if(!used)div.addEventListener('pointerdown',onDragStart);pal.appendChild(div)});
+}
+
+function renderMiniCards(){
+  _el('mainArea').querySelectorAll('.mini-card').forEach(c=>c.remove());
+  arrangements.forEach((arr,idx)=>{
+    const card=document.createElement('div');card.className='mini-card'+(arr.isDuplicate?' duplicate':'');card.style.left=arr.x+'px';card.style.top=arr.y+'px';
+    let h=`<span class="mini-num">#${idx+1}</span><button class="mini-del" onpointerdown="event.stopPropagation();deleteArrangement(${idx})">&#10005;</button><div class="mini-row">`;
+    arr.front.forEach(mid=>{const m=MEMBERS[mid];h+=`<div class="mini-seat" style="background:${m.color}12;border-color:${m.color}"><div class="avatar">${avatarIMG(mid,34)}</div></div>`});
+    h+='</div><div class="mini-row">';
+    arr.back.forEach(mid=>{const m=MEMBERS[mid];h+=`<div class="mini-seat" style="background:${m.color}12;border-color:${m.color}"><div class="avatar">${avatarIMG(mid,34)}</div></div>`});
+    h+='</div>';card.innerHTML=h;card.addEventListener('pointerdown',onMiniDragStart);_el('mainArea').appendChild(card);
+  });
+}
+
+// ═══ DRAG — Girls ═══
+let dragMember=null,dragGhost=null,dragSource=null;
+function onDragStart(e){if(!activeCarVisible)return;e.preventDefault();const t=e.currentTarget,mid=t.dataset.member;if(!mid||backSeats.includes(mid))return;dragMember=mid;dragSource=t;t.classList.add('dragging');t.setPointerCapture(e.pointerId);logEvent('drag_start',{member:mid,car_id:carId});const m=MEMBERS[mid];dragGhost=document.createElement('div');dragGhost.className='drag-ghost';dragGhost.style.borderColor=m.color;dragGhost.innerHTML=avatarIMG(mid,48);dragGhost.style.left=(e.clientX-30)+'px';dragGhost.style.top=(e.clientY-30)+'px';document.body.appendChild(dragGhost);t.addEventListener('pointermove',onDragMove);t.addEventListener('pointerup',onDragEnd);t.addEventListener('pointercancel',onDragEnd)}
+function onDragMove(e){if(!dragGhost)return;dragGhost.style.left=(e.clientX-30)+'px';dragGhost.style.top=(e.clientY-30)+'px';for(let i=2;i<=4;i++){const s=_el('seat'+i),r=s.getBoundingClientRect(),o=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;s.classList.toggle('drop-hover',o&&backSeats[i-2]===null)}}
+function onDragEnd(e){if(!dragGhost)return;for(let i=2;i<=4;i++){const s=_el('seat'+i),r=s.getBoundingClientRect(),o=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;s.classList.remove('drop-hover');if(o&&backSeats[i-2]===null&&dragMember){backSeats[i-2]=dragMember;logEvent('drag_end',{member:dragMember,seat:i-2,car_id:carId});break}}dragGhost.remove();dragGhost=null;if(dragSource){dragSource.classList.remove('dragging');dragSource.removeEventListener('pointermove',onDragMove);dragSource.removeEventListener('pointerup',onDragEnd);dragSource.removeEventListener('pointercancel',onDragEnd);dragSource=null}dragMember=null;render()}
+
+// ═══ DRAG — Mini-cards ═══
+let miniDrag=null,miniOX=0,miniOY=0;
+function onMiniDragStart(e){if(e.target.closest('.mini-del'))return;const card=e.currentTarget;e.preventDefault();const idx=Array.from(_el('mainArea').querySelectorAll('.mini-card')).indexOf(card);const r=card.getBoundingClientRect();miniOX=e.clientX-r.left;miniOY=e.clientY-r.top;miniDrag={card,idx};card.classList.add('dragging-mini');card.setPointerCapture(e.pointerId);card.addEventListener('pointermove',onMiniDragMove);card.addEventListener('pointerup',onMiniDragEnd);card.addEventListener('pointercancel',onMiniDragEnd)}
+function onMiniDragMove(e){if(!miniDrag)return;const area=_el('mainArea').getBoundingClientRect();const x=e.clientX-area.left-miniOX,y=e.clientY-area.top-miniOY;miniDrag.card.style.left=Math.max(0,x)+'px';miniDrag.card.style.top=Math.max(0,y)+'px';if(arrangements[miniDrag.idx]){arrangements[miniDrag.idx].x=Math.max(0,x);arrangements[miniDrag.idx].y=Math.max(0,y)}}
+function onMiniDragEnd(e){if(!miniDrag)return;miniDrag.card.classList.remove('dragging-mini');miniDrag.card.removeEventListener('pointermove',onMiniDragMove);miniDrag.card.removeEventListener('pointerup',onMiniDragEnd);miniDrag.card.removeEventListener('pointercancel',onMiniDragEnd);if(miniDrag.idx>=0)logEvent('car_move',{car_id:arrangements[miniDrag.idx]?.id,x:arrangements[miniDrag.idx]?.x,y:arrangements[miniDrag.idx]?.y});miniDrag=null}
+
+document.addEventListener('DOMContentLoaded',()=>{wireAuth();checkSession()});
+</script>
+</body>
+</html>

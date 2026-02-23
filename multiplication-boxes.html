@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multiplication‑Box Kit & Puzzles</title>
+<style>
+ body{font-family:system-ui,sans-serif;margin:1.6rem;background:#fafafa}
+ h1{margin-top:0}
+ button{padding:.5rem 1rem;margin:.3rem;font-size:.95rem;cursor:pointer}
+ section{margin-top:1.4rem}
+ .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.8rem}
+ .face{display:flex;flex-direction:column;align-items:center;justify-content:center;
+       border:1px solid #000;width:60px;height:60px;font-weight:600}
+ .blue{background:#5da9ff}.red{background:#ff6b6b}.yellow{background:#ffe66d}.green{background:#7ad67a}
+ .boxCard{border:1px solid #000;padding:.4rem;background:#fff}
+ .boxId{font-size:.8rem;margin-bottom:.3rem;font-weight:700}
+ .chip{display:inline-block;padding:.2em .5em;margin:.1em .15em;border:1px solid #000;border-radius:4px;font-size:.9rem}
+ .row       { display:flex; flex-wrap:nowrap; margin:.15em 0; }
+.row strong{ margin-right:.4em; }
+
+ table{border-collapse:collapse;margin-top:.4rem}
+ th,td{border:1px solid #444;padding:.3em .5em;font-size:.85rem;text-align:center}
+ pre{background:#fff;border:1px solid #ccc;padding:1rem;overflow:auto}
+</style>
+</head>
+<body>
+
+<h1>Multiplication‑Box Generator</h1>
+
+<button id="genKit">1 · Generate kit</button>
+<button id="genTasks" disabled>2 · Generate 15 puzzles (6/9/12)</button>
+<button id="copyPieces" disabled>Copy pieces → Excel (TSV)</button>
+<button id="copyTasks"  disabled>Copy tasks → Excel (TSV)</button>
+<button id="copyPrompts" disabled>Copy prompt lists</button>
+
+<section>
+<h2>Visual preview of the 12 boxes</h2>
+<div id="preview" class="grid">// generate a kit first…</div>
+</section>
+
+<section>
+<h2>Puzzles for students</h2>
+<div id="puzzles">// generate tasks…</div>
+</section>
+
+<section>
+<h2>Solutions</h2>
+<div id="solutions">// …</div>
+</section>
+
+<section>
+<h2>Pieces JSON (for archival)</h2>
+<pre id="piecesJSON">// …</pre>
+</section>
+
+<section>
+<h2>Tasks JSON (for archival)</h2>
+<pre id="tasksJSON">// …</pre>
+</section>
+
+<script>
+/* ---------- helpers ---------- */
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const copyTxt=txt=>navigator.clipboard.writeText(txt).then(()=>alert("Copied!")).catch(()=>alert("Copy failed"));
+const colours=["blue","red","yellow","green"];
+
+/* ---------- kit generator ---------- */
+function generateBoxes(){
+  const small=[], pro=[10,12,14,15,16,18,20,21,24,25,27,28,30,32,35,36,40,42,45,48,49,54,56,63,64,72,81];
+  for(let n=2;n<=9;n++) for(let i=0;i<6;i++) small.push(n);        // 48 small
+  const large=pro.concat(shuffle([...pro]).slice(0,21));             // 48 large
+  shuffle(small); shuffle(large);
+  const faces=small.map((s,i)=>[s,large[i]]);
+  const boxes=[];
+  for(let id=1;id<=12;id++){
+    const arr=faces.slice((id-1)*4,id*4)
+                   .map(([sm,lg],idx)=>({id:(id-1)*4+idx,box:id,color:colours[idx],small:sm,large:lg}));
+    boxes.push({id,faces:arr});
+  }
+  return {boxes};
+}
+
+/* ---------- triple enumeration & task building ---------- */
+/* ---------- triple enumeration (three *different* boxes) ---------- */
+function triplesFromFaces(faces){
+  const list=[];
+  for(let i=0;i<faces.length;i++)
+    for(let j=i+1;j<faces.length;j++){
+      if(faces[i].box === faces[j].box) continue;          // same cube – skip
+      const prod = faces[i].small * faces[j].small;
+      for(let k=0;k<faces.length;k++){
+        if(k===i||k===j) continue;
+        if(faces[k].box===faces[i].box || faces[k].box===faces[j].box) continue; // same cube
+        if(faces[k].large === prod){
+          list.push([faces[i],faces[j],faces[k]]);
+        }
+      }
+    }
+  return list;
+}
+
+/* sort by small number, then colour for display */
+function chipSort(a, b) {
+  return a.box - b.box;                     // sort by cube index
+}
+
+function chipSmallHTML(f){ return `<span class="chip ${f.color}">${f.small}</span>`; }
+
+function pickDisjoint(triples,needed){
+  const usedFace = new Set();
+  const usedBox  = new Set();
+  const chosen   = [];
+
+  for(const tri of triples){
+    if(tri.some(f=>usedFace.has(f.id) || usedBox.has(f.box))) continue;
+    tri.forEach(f=>{ usedFace.add(f.id); usedBox.add(f.box); });
+    chosen.push(tri);
+    if(chosen.length === needed) break;
+  }
+  return chosen.length === needed ? chosen : null;
+}
+
+function makePuzzles(boxes){
+  const faces=boxes.flatMap(b=>b.faces), triples=shuffle(triplesFromFaces(faces));
+  const tasks={}, prompts=[];
+  for(const size of [6,9,12]){
+    tasks[size]=[];
+    let tries=0;
+    while(tasks[size].length<15 && tries<8000){
+      const candidate=pickDisjoint(shuffle(triples),size/3);
+      if(candidate){
+        tasks[size].push(candidate);
+        prompts.push(candidate.flat().map(f=>`${f.small} ${f.color}`).join(", "));
+      }
+      tries++;
+    }
+  }
+  return {tasks,prompts};
+}
+
+/* ---------- rendering ---------- */
+function renderPreview(boxes){
+  const root=document.getElementById("preview"); root.innerHTML="";
+  boxes.forEach(b=>{
+    const card=document.createElement("div"); card.className="boxCard";
+    card.innerHTML=`<div class="boxId">Box ${b.id}</div>`;
+    b.faces.forEach(f=>{
+      const div=document.createElement("div");
+      div.className=`face ${f.color}`;
+      div.innerHTML=`<div>${f.small}</div><div>${f.large}</div>`;
+      card.appendChild(div);
+    });
+    root.appendChild(card);
+  });
+}
+function chipHTML(f)      { return `<span class="chip ${f.color}">${f.box}</span>`; }
+function chipLargeHTML(f) { return `<span class="chip ${f.color}">${f.large}</span>`; }
+
+/* ---------- helper: sort faces for nice display ---------- */
+
+/* ---------- RENDER PUZZLES & SOLUTIONS ---------- */
+function renderPuzzles(tasks) {
+  const puzzlesDiv   = document.getElementById("puzzles");
+  const solutionsDiv = document.getElementById("solutions");
+  puzzlesDiv.innerHTML = solutionsDiv.innerHTML = "";
+
+  for (const size of [6, 9, 12]) {
+    /* section headers */
+    const pSec = document.createElement("div");
+    pSec.innerHTML = `<h3>${size} faces (×15)</h3>`;
+    const sSec = document.createElement("div");
+    sSec.innerHTML = `<h3>${size} faces – solutions</h3>`;
+
+    /* each puzzle row */
+    tasks[size].forEach((triples, idx) => {
+      /* -------- puzzle view -------- */
+      const row  = document.createElement("div");
+      row.className = "row";
+      const faces = triples.flat().sort(chipSort);                 // ascending
+      row.innerHTML = `<strong>#${idx + 1}:</strong> ${faces.map(chipHTML).join("")}`;
+      pSec.appendChild(row);
+
+      /* -------- solution view -------- */
+      const solRow   = document.createElement("div");
+      solRow.className = "row";
+   const tripleStr = triples
+  .map(t => `${chipSmallHTML(t[0])} × ${chipSmallHTML(t[1])} = ${chipLargeHTML(t[2])}`)
+  .join(" , ");
+  
+      solRow.innerHTML = `<strong>#${idx + 1}:</strong> ${tripleStr}`;
+      sSec.appendChild(solRow);
+    });
+
+    puzzlesDiv.appendChild(pSec);
+    solutionsDiv.appendChild(sSec);
+  }
+}
+
+
+
+
+
+/* ---------- TSV exporters ---------- */
+function piecesTSV(boxes){
+  let out="box\tcolor\tsmall\tlarge\n";
+  boxes.forEach(b=>b.faces.forEach(f=>out+=`${b.id}\t${f.color}\t${f.small}\t${f.large}\n`));
+  return out;
+}
+function tasksTSV(tasks){
+  let out="taskSize\ttaskNum\ttriple\tbox\tcolor\tsmall\tlarge\n";
+  for(const size of Object.keys(tasks)){
+    tasks[size].forEach((trips,idx)=>{
+      trips.forEach((tri,tIdx)=>tri.forEach(f=>{
+        out+=`${size}\t${idx+1}\t${tIdx+1}\t${f.box}\t${f.color}\t${f.small}\t${f.large}\n`;
+      }));
+    });
+  }
+  return out;
+}
+
+/* ---------- UI wiring ---------- */
+let kit=null, data=null;
+
+const btn=(id,fn)=>document.getElementById(id).onclick=fn;
+
+btn("genKit",()=>{
+  kit=generateBoxes();
+  renderPreview(kit.boxes);
+  document.getElementById("piecesJSON").textContent=JSON.stringify(kit,null,2);
+  ["genTasks","copyPieces","copyTasks","copyPrompts"].forEach(x=>document.getElementById(x).disabled=false);
+  document.getElementById("puzzles").innerHTML="// generate tasks…";
+  document.getElementById("solutions").innerHTML="// …";
+  document.getElementById("tasksJSON").textContent="// …";
+});
+btn("genTasks",()=>{
+  data=makePuzzles(kit.boxes);
+  renderPuzzles(data.tasks);
+  document.getElementById("tasksJSON").textContent=JSON.stringify(data.tasks,null,2);
+});
+btn("copyPieces",()=>copyTxt(piecesTSV(kit.boxes)));
+btn("copyTasks", ()=>copyTxt(tasksTSV(data.tasks)));
+btn("copyPrompts",()=>copyTxt(data.prompts.join("\n")));
+</script>
+</body>
+</html>

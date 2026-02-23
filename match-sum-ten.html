@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>רשת מקטעים 3×3 — משחק שני שחקנים</title>
+<style>
+  :root{
+    --bg:#ffffff; --ink:#0f172a; --line:#e5e7eb;
+    --unknown:#cbd5e1; --on:#111827;
+    --len:96px; --thk:18px; --gap:36px; --m:12px;
+    --p1:#2563eb; --p2:#a855f7; --hl:#22c55e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Arial}
+  header{padding:14px 18px;font-weight:800}
+  .layout{max-width:1100px;margin:16px auto;padding:0 16px;display:grid;grid-template-columns:360px 1fr;gap:18px}
+  .pane{border:1px solid var(--line);border-radius:16px;background:#fff}
+  .right{padding:16px;background:#fafafa}
+  .right h2{margin:0 0 10px 0}
+  .muted{color:#64748b;font-size:14px;line-height:1.45}
+  .board{padding:12px;position:relative}
+  .controls{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;justify-content:flex-end}
+  .controls button{appearance:none;border:1px solid var(--line);background:#0b1220;color:#fff;border-radius:10px;padding:9px 12px;cursor:pointer}
+  .stage{
+    --S: calc(var(--len) + var(--gap));
+    width:  calc(2*var(--m) + 3*var(--S));
+    height: calc(2*var(--m) + 3*var(--S));
+    margin:8px auto; position:relative; user-select:none; touch-action:manipulation;
+    border:1px solid var(--line); border-radius:14px; background:#fff;
+  }
+  .seg{
+    position:absolute; border-radius:9999px; border:1px solid var(--line);
+    background:var(--unknown); box-shadow:0 1px 2px rgba(0,0,0,.06);
+    transition:background .12s, border-color .12s, box-shadow .12s;
+  }
+  .seg.h{ width:var(--len); height:var(--thk) }
+  .seg.v{ width:var(--thk); height:var(--len) }
+  .seg.on{ background:var(--on); border-color:rgba(0,0,0,.22) }
+  .seg.allowed{ box-shadow:0 0 0 2px var(--hl) inset, 0 0 0 3px rgba(34,197,94,.25) }
+  .seg.disabled{ pointer-events:none; opacity:.6 }
+  /* צבעים לצביעת ספרות שאפשר לקחת */
+  .seg.clr-0{ background:#3b82f6 !important; border-color:rgba(59,130,246,.45) !important }
+  .seg.clr-1{ background:#a855f7 !important; border-color:rgba(168,85,247,.45) !important }
+  .seg.clr-2{ background:#14b8a6 !important; border-color:rgba(20,184,166,.45) !important }
+  .seg.clr-3{ background:#f59e0b !important; border-color:rgba(245,158,11,.45) !important }
+  .seg.clr-4{ background:#ef4444 !important; border-color:rgba(239,68,68,.45) !important }
+  .seg.clr-5{ background:#22c55e !important; border-color:rgba(34,197,94,.45) !important }
+  .cursor{
+    position:absolute; width:18px; height:18px; border-radius:999px;
+    background:#fff; border:3px solid #111827; box-shadow:0 2px 6px rgba(0,0,0,.25);
+    transform:translate(-50%,-50%); z-index:5; pointer-events:none;
+  }
+  .score{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px}
+  .card{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+  .who{font-weight:800;margin:0 0 6px 0}
+  .p1{color:var(--p1)} .p2{color:var(--p2)}
+  .bag{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{background:#111827;color:#fff;border-radius:999px;padding:3px 8px;font-weight:700;font-size:12px}
+  .ten{display:inline-block;margin-inline-start:8px;padding:2px 6px;border-radius:999px;background:#16a34a;color:#fff;font-weight:800;font-size:12px}
+  .turn{margin:8px 0;font-weight:800}
+  .claimBar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+  .claimBar button{appearance:none;border:1px solid var(--line);background:#0b1220;color:#fff;border-radius:999px;padding:6px 10px;cursor:pointer}
+  .endBtn[disabled]{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<header>רשת מקטעים 3×3 — משחק שני שחקנים</header>
+
+<div class="layout">
+  <aside class="pane right">
+    <h2>מצב המשחק</h2>
+    <div id="turnText" class="turn"></div>
+    <div class="score">
+      <div class="card">
+        <p class="who p1">שחקן 1 <span id="ten1"></span></p>
+        <div>סכום: <b id="sum1">0</b></div>
+        <div class="bag" id="bag1"></div>
+      </div>
+      <div class="card">
+        <p class="who p2">שחקן 2 <span id="ten2"></span></p>
+        <div>סכום: <b id="sum2">0</b></div>
+        <div class="bag" id="bag2"></div>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:10px">
+      בתורך הנקודה רצה באקראי בין צמתים חוקיים (עם לפחות קו אפור) ועוצרת באחד מהם.
+      מותר לסמן ולבטל (בתוך התור) כמה קווים אפורים בצומת זה. אם הושלמה ספרה – אפשר לקחת אותה,
+      ואז התור מסתיים אוטומטית. אם יש תת-קבוצה מהספרות שלך שסכומה 10 – יופיע חיווי.
+    </p>
+  </aside>
+
+  <section class="pane board">
+    <div class="controls">
+      <button id="newBtn">משחק חדש</button>
+    </div>
+    <div id="stage" class="stage"></div>
+    <div id="claimBar" class="claimBar"></div>
+  </section>
+</div>
+
+<script>
+(()=> {
+  // ===== geometry =====
+  const VAR = k => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(k));
+  const LEN = VAR('--len'), THK = VAR('--thk'), GAP = VAR('--gap'), M = VAR('--m'), S = LEN + GAP;
+
+  const stage   = document.getElementById('stage');
+  const claimBar= document.getElementById('claimBar');
+  const turnText= document.getElementById('turnText');
+  const bag1    = document.getElementById('bag1');
+  const bag2    = document.getElementById('bag2');
+  const sum1    = document.getElementById('sum1');
+  const sum2    = document.getElementById('sum2');
+  const ten1    = document.getElementById('ten1');
+  const ten2    = document.getElementById('ten2');
+
+  // build grid
+  function place(cx, cy, kind, r, c){
+    const el = document.createElement('div');
+    el.className = `seg ${kind}`;
+    el.dataset.kind = kind; el.dataset.r = r; el.dataset.c = c;
+    if (kind==='h'){ el.style.left=(M+cx-LEN/2)+'px'; el.style.top=(M+cy-THK/2)+'px'; }
+    else           { el.style.left=(M+cx-THK/2)+'px'; el.style.top=(M+cy-LEN/2)+'px'; }
+    el.addEventListener('click', ()=> onSegClick(el));
+    stage.appendChild(el); return el;
+  }
+  const H = Array.from({length:4}, ()=> Array(3));
+  const V = Array.from({length:3}, ()=> Array(4));
+  for (let r=0;r<4;r++) for (let c=0;c<3;c++) H[r][c] = place((c+0.5)*S, r*S, 'h', r, c);
+  for (let r=0;r<3;r++) for (let c=0;c<4;c++) V[r][c] = place(c*S, (r+0.5)*S, 'v', r, c);
+
+  const isOn = el => el.classList.contains('on');
+
+  // cursor + nodes
+  const cursor = document.createElement('div'); cursor.className='cursor'; stage.appendChild(cursor);
+  const NODES = Array.from({length:4}, (_,r)=> Array.from({length:4}, (_,c)=>({x:M+c*S, y:M+r*S, r, c})));
+  function incidentSegments(r,c){
+    const segs=[];
+    if (c<3) segs.push(H[r][c]);
+    if (c>0) segs.push(H[r][c-1]);
+    if (r<3) segs.push(V[r][c]);
+    if (r>0) segs.push(V[r-1][c]);
+    return segs;
+  }
+  const isGrey = s => !s.classList.contains('on');
+
+  function validNodes(){
+    const out=[];
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++){
+      if (incidentSegments(r,c).some(isGrey)) out.push(NODES[r][c]);
+    }
+    return out;
+  }
+
+  // ===== 7-segment =====
+  // order: [A,B,C,D,E,F,G]
+  const DIGITS = {
+    0:[1,1,1,1,1,1,0], 1:[0,1,1,0,0,0,0], 2:[1,1,0,1,1,0,1],
+    3:[1,1,1,1,0,0,1], 4:[0,1,1,0,0,1,1], 5:[1,0,1,1,0,1,1],
+    6:[1,0,1,1,1,1,1], 7:[1,1,1,0,0,0,0], 8:[1,1,1,1,1,1,1],
+    9:[1,1,1,1,0,1,1]
+  };
+  // extra variant: 1 בשמאל
+  const VARIANTS = { 1: [[0,1,1,0,0,0,0],[0,0,0,0,1,1,0]] };
+
+  function bitsForCell(r, j){
+    const A=+isOn(H[r][j]),   G=+isOn(H[r+1][j]), D=+isOn(H[r+2][j]);
+    const F=+isOn(V[r][j]),   E=+isOn(V[r+1][j]);
+    const B=+isOn(V[r][j+1]), C=+isOn(V[r+1][j+1]);
+    return [A,B,C,D,E,F,G];
+  }
+  function segMapForCell(r, j){
+    return { A:H[r][j], B:V[r][j+1], C:V[r+1][j+1], D:H[r+2][j], E:V[r+1][j], F:V[r][j], G:H[r+1][j] };
+  }
+
+  const COLORS = ['clr-0','clr-1','clr-2','clr-3','clr-4','clr-5'];
+  function clearColors(){ stage.querySelectorAll('.seg').forEach(el=> el.classList.remove(...COLORS)); }
+
+  function buildCandidates(){
+    const list=[];
+    for (let r=0;r<2;r++){
+      for (let j=0;j<3;j++){
+        const bits = bitsForCell(r,j);
+        const map  = segMapForCell(r,j);
+        for (let d=0; d<=9; d++){
+          const encs = VARIANTS[d] || [DIGITS[d]];
+          for (const enc of encs){
+            let ok=true, weight=0;
+            for (let i=0;i<7;i++){
+              if (enc[i]===1){ weight++; if (bits[i]!==1){ ok=false; break; } }
+            }
+            if(!ok) continue;
+            const segs=[]; if(enc[0]) segs.push(map.A); if(enc[1]) segs.push(map.B); if(enc[2]) segs.push(map.C);
+            if(enc[3]) segs.push(map.D); if(enc[4]) segs.push(map.E); if(enc[5]) segs.push(map.F); if(enc[6]) segs.push(map.G);
+            const rects=segs.map(s=>s.getBoundingClientRect());
+            const yTop=Math.min(...rects.map(r=>r.top)); const xLeft=Math.min(...rects.map(r=>r.left));
+            list.push({digit:d,row:r,col:j,weight,segs,yTop,xLeft,key:`${r}-${j}-${d}`});
+          }
+        }
+      }
+    }
+    return list;
+  }
+
+  function pickWinnersGlobal(cands){
+    cands.sort((a,b)=>{
+      if (b.weight!==a.weight) return b.weight-a.weight;
+      if (b.digit !==a.digit ) return b.digit-a.digit;
+      if (a.yTop  !==b.yTop  ) return a.yTop-b.yTop;
+      if (a.col   !==b.col   ) return a.col-b.col;
+      return a.xLeft-b.xLeft;
+    });
+    const winners=[], claimed=new Set();
+    const free = c => c.segs.every(s=>!claimed.has(s));
+    for (const c of cands){
+      if (!free(c)) continue;
+      winners.push(c);
+      c.segs.forEach(s=> claimed.add(s));
+    }
+    return winners;
+  }
+
+  // ===== game state =====
+  let curPlayer = 1;
+  const bags = {1:[], 2:[]};
+  const sums = {1:0, 2:0};
+
+  // סט הקווים שהודלקו בתור הנוכחי (כדי לאפשר ביטול)
+  const toggledSet = new Set();
+  let toggledThisTurn = 0;
+
+  let canPlay = false;
+  let allowed = new Set();
+
+  let winnersPrev = new Set();          // מצב הזיהויים בתחילת התור
+  let claimedKeysThisTurn = new Set();  // שלא נציע שוב
+
+  // שמירת מיקום אחרון של הנקודה בין תורות
+  let lastNode = null;
+  let lastValidSignature = '';
+
+  function hasDigit(player, d){ return bags[player].includes(d); }
+
+  // חיווי “יש 10”
+  function hasTenSubset(arr){
+    const can = Array(11).fill(false); can[0]=true;
+    for(const x of arr){ for(let s=10; s>=x; s--) can[s] = can[s] || can[s-x]; }
+    return can[10];
+  }
+
+  function redrawScore(){
+    bag1.innerHTML = bags[1].map(d=>`<span class="chip">${d}</span>`).join('');
+    bag2.innerHTML = bags[2].map(d=>`<span class="chip">${d}</span>`).join('');
+    sum1.textContent = sums[1]; sum2.textContent = sums[2];
+    ten1.innerHTML = hasTenSubset(bags[1]) ? '<span class="ten">יש 10</span>' : '';
+    ten2.innerHTML = hasTenSubset(bags[2]) ? '<span class="ten">יש 10</span>' : '';
+  }
+  function turnBanner(){
+    const col = curPlayer===1 ? 'var(--p1)' : 'var(--p2)';
+    turnText.innerHTML = `תור <span style="color:${col};font-weight:800">שחקן ${curPlayer}</span>`;
+  }
+
+  function highlightAllowed(r,c){
+    allowed.clear(); toggledSet.clear(); toggledThisTurn = 0;
+    stage.querySelectorAll('.seg').forEach(s=> s.classList.remove('allowed','disabled'));
+    const segs = incidentSegments(r,c).filter(isGrey);
+    segs.forEach(s=> { s.classList.add('allowed'); allowed.add(s); });
+    stage.querySelectorAll('.seg').forEach(s=>{ if(!allowed.has(s)) s.classList.add('disabled'); });
+  }
+
+  function signature(list){ return list.map(n=>`${n.r}-${n.c}`).sort().join('|'); }
+
+  // ריצה אקראית בין צמתים חוקיים
+  function startTurn(){
+    canPlay = false; claimBar.innerHTML = ''; clearColors();
+    turnBanner();
+    winnersPrev = new Set(pickWinnersGlobal(buildCandidates()).map(w=> w.key));
+    claimedKeysThisTurn.clear();
+
+    const valids = validNodes();
+    if (!valids.length){ turnText.textContent = 'אין יותר מהלכים חוקיים.'; return; }
+    const sig = signature(valids);
+
+    // בחר נקודת התחלה: אם הקודמת עדיין חוקית – נתחיל ממנה; אחרת אקראית
+    let current = lastNode && valids.find(v=> v.r===lastNode.r && v.c===lastNode.c) || valids[Math.floor(Math.random()*valids.length)];
+    cursor.style.left = current.x+'px'; cursor.style.top  = current.y+'px';
+
+    // אורך מסלול רנדומלי 10..28 צעדים
+    const steps = 10 + Math.floor(Math.random()*19);
+    const stepMs = 70;
+    let i = 0;
+
+    const t = setInterval(()=>{
+      const candidates = valids.filter(n => !(n.r===current.r && n.c===current.c));
+      const next = candidates.length ? candidates[Math.floor(Math.random()*candidates.length)] : current;
+      cursor.style.left = next.x+'px'; cursor.style.top  = next.y+'px';
+      current = next; i++;
+      if (i >= steps){
+        clearInterval(t);
+        lastNode = current; lastValidSignature = sig;
+        highlightAllowed(current.r, current.c);
+        canPlay = true;
+        renderClaimables();
+        renderEndTurnButton();
+      }
+    }, stepMs);
+  }
+
+  // צביעה + כפתורי לקיחה (סדר אקראי)
+  function renderClaimables(){
+    clearColors();
+    const now = pickWinnersGlobal(buildCandidates());
+    const claimables = now.filter(w=> !winnersPrev.has(w.key) && !claimedKeysThisTurn.has(w.key) && !hasDigit(curPlayer, w.digit));
+
+    // ערבב סדר להצגה/צביעה
+    claimables.sort(()=> Math.random()-0.5);
+
+    claimables.forEach((w,i)=> w.segs.forEach(s=> s.classList.add(COLORS[i % COLORS.length])));
+    buildClaimButtons(claimables);
+  }
+
+  function buildClaimButtons(list){
+    const keepEnd = document.getElementById('endBtn');
+    claimBar.innerHTML = '';
+    if (list.length){
+      const txt = document.createElement('div'); txt.textContent = 'אפשר לקחת:'; claimBar.appendChild(txt);
+      list.forEach(one=>{
+        const b = document.createElement('button');
+        b.textContent = `קח ${one.digit}`;
+        b.onclick = ()=> claimDigit(one);
+        claimBar.appendChild(b);
+      });
+    }
+    if (keepEnd) claimBar.appendChild(keepEnd);
+    renderEndTurnButton();
+  }
+
+  function onSegClick(el){
+    if (!canPlay) return;
+    if (!allowed.has(el)) return;
+
+    // אם הודלק בתור הזה – לחץ נוסף מבטל; אחרת נדליק (רק אפור)
+    if (toggledSet.has(el)){
+      el.classList.remove('on');
+      toggledSet.delete(el);
+    } else if (isGrey(el)) {
+      el.classList.add('on');
+      toggledSet.add(el);
+    } else { return; }
+
+    toggledThisTurn = toggledSet.size;
+    renderEndTurnButton();
+    renderClaimables();
+  }
+
+  // לקיחת ספרה — ומיד סיום תור
+  function claimDigit(one){
+    if (hasDigit(curPlayer, one.digit)) return;
+    one.segs.forEach(s=> s.classList.remove('on'));
+    bags[curPlayer].push(one.digit);
+    sums[curPlayer]+=one.digit;
+    claimedKeysThisTurn.add(one.key);
+    redrawScore();
+    // סיום תור אוטומטי אחרי לקיחה
+    endTurn();
+  }
+
+  function renderEndTurnButton(){
+    let btn = document.getElementById('endBtn');
+    if (!btn){
+      btn = document.createElement('button'); btn.id='endBtn'; btn.className='endBtn';
+      btn.textContent='סיים תור'; btn.onclick=()=> { if(btn.disabled) return; endTurn(); };
+      claimBar.appendChild(btn);
+    }
+    btn.disabled = toggledThisTurn<=0 || !canPlay;
+  }
+
+  function endTurn(){
+    canPlay=false;
+    stage.querySelectorAll('.seg').forEach(s=> s.classList.remove('allowed','disabled',...COLORS));
+    claimBar.innerHTML='';
+    curPlayer = (curPlayer===1?2:1);
+    startTurn();
+  }
+
+  // UI
+  document.getElementById('newBtn').onclick = ()=>{
+    stage.querySelectorAll('.seg').forEach(s=> s.classList.remove('on','allowed','disabled',...COLORS));
+    bags[1]=[];bags[2]=[];sums[1]=0;sums[2]=0; redrawScore();
+    lastNode = null; lastValidSignature = '';
+    curPlayer=1; startTurn();
+  };
+
+  // init
+  redrawScore();
+  startTurn();
+})();
+</script>
+</body>
+</html>

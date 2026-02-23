@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>גובה המיסים</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#fff;color:#333;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;padding:24px;
+  -webkit-user-select:none;user-select:none}
+
+.header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+h1{font-size:1.8rem;color:#c62828;display:flex;align-items:center;gap:8px}
+h1 .icon{font-size:2rem}
+.qr-area{display:flex;gap:16px;align-items:center}
+.qr-block{text-align:center}
+.qr-block svg{display:block}
+.qr-label{font-size:0.65rem;color:#999;margin-top:2px}
+
+/* ---- controls bar ---- */
+.controls-bar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
+
+.version-toggle{display:flex;background:#e0e0e0;border-radius:8px;overflow:hidden}
+.version-toggle button{padding:8px 18px;border:none;background:transparent;font-size:0.9rem;
+  font-weight:600;cursor:pointer;color:#555;transition:all .2s}
+.version-toggle button.active{background:#1565c0;color:#fff}
+
+.view-toggle{display:flex;background:#e0e0e0;border-radius:8px;overflow:hidden}
+.view-toggle button{padding:8px 14px;border:none;background:transparent;font-size:0.85rem;
+  font-weight:600;cursor:pointer;color:#555;transition:all .2s}
+.view-toggle button.active{background:#7b1fa2;color:#fff}
+
+/* ---- high score display ---- */
+.highscore-bar{font-size:0.9rem;color:#888;font-weight:600;margin-bottom:16px;text-align:center}
+.highscore-bar span{color:#f9a825}
+
+/* ---- game layout ---- */
+.game-view{width:100%;max-width:660px;display:flex;flex-direction:column;align-items:center}
+
+.player-section{width:100%;margin-bottom:16px}
+.tax-section{width:100%;margin-bottom:16px}
+
+.box-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;padding:0 4px}
+.box-label{font-weight:700;font-size:0.85rem;text-transform:uppercase;letter-spacing:.5px}
+.box-label.tax-label{color:#c62828}
+.box-label.player-label{color:#1565c0}
+.box-sum{font-size:1.8rem;font-weight:800}
+.box-sum.tax-sum{color:#c62828}
+.box-sum.player-sum{color:#1565c0}
+.box{border:2px solid #e0e0e0;border-radius:14px;padding:14px;min-height:80px;
+  display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.player-box{border-color:#90caf9;border-style:dashed}
+.player-box.drop-hover{background:#e3f2fd;border-color:#1565c0;border-style:solid}
+.tax-box{border-color:#ef9a9a}
+
+.tile{width:50px;height:50px;border-radius:10px;font-size:1.25rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;transition:all .15s}
+.tile.in-tax{background:#ffebee;color:#c62828;border:2px solid #ef9a9a}
+.tile.in-player{background:#e3f2fd;color:#1565c0;border:2px solid #90caf9}
+
+.number-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;direction:ltr;
+  margin-bottom:16px;width:100%;order:0}
+.tile.avail{background:#fff;border:2.5px solid #e0e0e0;color:#333;cursor:grab}
+.tile.avail:hover{transform:scale(1.1);box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.tile.dragging{opacity:.25}
+
+.tile.ghost{position:fixed;pointer-events:none;z-index:1000;
+  background:#1565c0;color:#fff;border:2px solid #0d47a1;
+  box-shadow:0 8px 28px rgba(0,0,0,.22);transform:scale(1.12) rotate(-2deg)}
+.tile.tax-fly{position:fixed;z-index:1000;pointer-events:none;
+  background:#c62828;color:#fff;border:2px solid #b71c1c;
+  box-shadow:0 4px 16px rgba(198,40,40,.35)}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);
+  background:#c62828;color:#fff;padding:10px 24px;border-radius:10px;font-size:1rem;font-weight:600;
+  box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:3000;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+.end-btn{padding:12px 28px;background:#c62828;color:#fff;border:none;border-radius:10px;
+  font-size:1rem;font-weight:600;cursor:pointer;margin-top:8px}
+.end-btn:hover{background:#b71c1c}
+.new-game-btn{padding:8px 20px;background:#f5f5f5;color:#888;border:1px solid #ddd;border-radius:8px;
+  font-size:0.85rem;cursor:pointer;margin-top:12px}
+.new-game-btn:hover{background:#eee;color:#555}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;
+  align-items:center;justify-content:center;z-index:2000}
+.modal{background:#fff;border-radius:16px;padding:32px;max-width:380px;width:90%;
+  text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.18)}
+.modal h2{margin-bottom:6px;font-size:1.5rem}
+.modal .res{font-size:1.05rem;margin-bottom:20px;color:#555}
+.modal button{width:100%;padding:10px;border:none;border-radius:8px;font-size:1rem;
+  font-weight:600;cursor:pointer;margin-top:8px}
+.btn-again{background:#c62828;color:#fff}
+.btn-again:hover{background:#b71c1c}
+.new-record{color:#f9a825;font-weight:700;font-size:1.1rem;margin-top:8px}
+
+/* ---- results panel ---- */
+.results-panel{width:100%;max-width:660px}
+.results-cards{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.stat-card{flex:1;min-width:80px;background:#f8f9fa;border-radius:10px;padding:12px;text-align:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stat-card .val{font-size:1.5rem;font-weight:800}
+.stat-card .lbl{font-size:0.7rem;color:#888;margin-top:2px}
+.stat-card.wins .val{color:#2e7d32}
+.stat-card.losses .val{color:#c62828}
+
+.student-table{width:100%;border-collapse:collapse;font-size:0.9rem;background:#fff;border-radius:10px;overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.student-table th{text-align:right;color:#888;font-size:0.75rem;padding:10px 8px;border-bottom:2px solid #eee;background:#f8f9fa}
+.student-table td{padding:10px 8px;border-bottom:1px solid #f0f0f0}
+.student-table .win{color:#2e7d32;font-weight:700}
+.results-note{text-align:center;color:#bbb;font-size:0.75rem;margin-top:10px}
+
+.teacher-link{margin-top:16px}
+.teacher-link a{color:#1565c0;font-size:0.85rem;text-decoration:none}
+.teacher-link a:hover{text-decoration:underline}
+
+/* ---- desktop: side by side ---- */
+@media(min-width:521px){
+  .game-layout{display:flex;gap:20px;width:100%;margin-bottom:16px}
+  .player-section{flex:1}
+  .tax-section{flex:1}
+}
+
+/* ---- mobile: player -> numbers -> tax ---- */
+@media(max-width:520px){
+  .game-layout{display:contents}
+  .player-section{order:1}
+  .number-row{order:2}
+  .tax-section{order:3}
+  .end-btn{order:4}
+  .new-game-btn{order:5}
+  .tile{width:42px;height:42px;font-size:1.05rem}
+  .qr-area{display:none}
+  h1{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="icon">🏛️</span> גובה המיסים</h1>
+  <div class="qr-area">
+    <div class="qr-block" id="qrStudent"></div>
+  </div>
+</div>
+
+<div class="controls-bar">
+  <div class="version-toggle" id="versionToggle">
+    <button class="active" onclick="setVersion(12)">1-12</button>
+    <button onclick="setVersion(24)">1-24</button>
+  </div>
+  <div class="view-toggle">
+    <button class="active" id="btnViewGame" onclick="switchView('game')">🎮 משחק</button>
+    <button id="btnViewResults" onclick="switchView('results')">📊 תוצאות</button>
+  </div>
+</div>
+
+<!-- game view -->
+<div id="gameView" class="game-view">
+  <div class="highscore-bar" id="highscoreBar"></div>
+
+  <div class="game-layout">
+    <div class="player-section">
+      <div class="box-top">
+        <span class="box-label player-label">אתה</span>
+        <span class="box-sum player-sum" id="playerSum">0</span>
+      </div>
+      <div class="box player-box" id="playerBox"><div id="playerTiles" style="display:contents"></div></div>
+    </div>
+    <div class="tax-section">
+      <div class="box-top">
+        <span class="box-label tax-label">גובה המיסים</span>
+        <span class="box-sum tax-sum" id="taxSum">0</span>
+      </div>
+      <div class="box tax-box" id="taxBox"><div id="taxTiles" style="display:contents"></div></div>
+    </div>
+  </div>
+
+  <div class="number-row" id="row"></div>
+  <button class="end-btn" id="endBtn" style="display:none" onclick="collectRemainder()">גובה המיסים לוקח את השאר</button>
+  <button class="new-game-btn" onclick="init()">משחק חדש</button>
+</div>
+
+<!-- results view -->
+<div id="resultsView" style="display:none" class="results-panel">
+  <div class="results-cards">
+    <div class="stat-card"><div class="val" id="rTotalGames">-</div><div class="lbl">משחקים</div></div>
+    <div class="stat-card wins"><div class="val" id="rTotalWins">-</div><div class="lbl">ניצחונות</div></div>
+    <div class="stat-card losses"><div class="val" id="rTotalLosses">-</div><div class="lbl">הפסדים</div></div>
+  </div>
+  <table class="student-table">
+    <thead><tr><th>שחקן</th><th>שיא ניקוד</th><th>משחקים</th><th>ניצחונות</th></tr></thead>
+    <tbody id="studentBody"><tr><td colspan="4" style="color:#aaa;text-align:center">טוען...</td></tr></tbody>
+  </table>
+  <div class="results-note" id="resultsNote"></div>
+</div>
+
+<div class="teacher-link">
+  <a href="https://www.yisumatica.org.il/tax/teacher.html" target="_blank">📊 לוח מורה מלא</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let N = 12, TOTAL = N * (N + 1) / 2;
+const SRV = '__SERVER_URL__';
+const hasSrv = !SRV.includes('__SERVER');
+const YISUMATICA = 'https://www.yisumatica.org.il/tax/';
+
+let avail, pNums, tNums, pSum, tSum, moves, over, waitingForEnd, pendingTax;
+let ghost = null, dragN = null, toastTimer = null;
+let currentView = 'game';
+let resultsInterval = null;
+
+const divs = n => { const d=[]; for(let i=1;i<n;i++) if(n%i===0) d.push(i); return d; };
+const canPlay = n => avail.has(n) && divs(n).some(d => avail.has(d));
+const anyMove = () => { for(const n of avail) if(canPlay(n)) return true; return false; };
+
+/* ---- high score ---- */
+function getHighScore() { return parseInt(localStorage.getItem('highscore_' + N) || '0', 10); }
+function setHighScore(score) { localStorage.setItem('highscore_' + N, score); }
+function updateHighScoreDisplay() {
+  const hs = getHighScore();
+  const el = document.getElementById('highscoreBar');
+  if (hs > 0) el.innerHTML = '<span>⭐</span> שיא: ' + hs + ' (גרסה 1-' + N + ')';
+  else el.textContent = '';
+}
+
+/* ---- version toggle ---- */
+function setVersion(v) {
+  if (v === N) return;
+  N = v; TOTAL = N * (N + 1) / 2;
+  const btns = document.querySelectorAll('#versionToggle button');
+  btns.forEach(b => b.classList.toggle('active', b.textContent === '1-' + N));
+  fetch(YISUMATICA + 'api.php?action=set_version', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({version: N})
+  }).catch(()=>{});
+  init();
+}
+
+/* ---- view toggle ---- */
+function switchView(view) {
+  currentView = view;
+  document.getElementById('gameView').style.display = view === 'game' ? '' : 'none';
+  document.getElementById('resultsView').style.display = view === 'results' ? '' : 'none';
+  document.getElementById('btnViewGame').classList.toggle('active', view === 'game');
+  document.getElementById('btnViewResults').classList.toggle('active', view === 'results');
+  if (view === 'results') {
+    loadResults();
+    if (!resultsInterval) resultsInterval = setInterval(loadResults, 10000);
+  } else {
+    if (resultsInterval) { clearInterval(resultsInterval); resultsInterval = null; }
+  }
+}
+
+/* ---- load student results ---- */
+async function loadResults() {
+  try {
+    const r = await fetch(YISUMATICA + 'api.php?action=results');
+    const d = await r.json();
+    const results = d.results || [];
+
+    const wins = results.filter(r => r.result === 'win').length;
+    const losses = results.filter(r => r.result === 'lose').length;
+    document.getElementById('rTotalGames').textContent = results.length;
+    document.getElementById('rTotalWins').textContent = wins;
+    document.getElementById('rTotalLosses').textContent = losses;
+
+    const students = {};
+    results.forEach(r => {
+      const name = r.player_name;
+      if (!students[name]) students[name] = {maxScore: 0, games: 0, wins: 0};
+      students[name].games++;
+      if (r.result === 'win') students[name].wins++;
+      const score = parseInt(r.player_score) || 0;
+      if (score > students[name].maxScore) students[name].maxScore = score;
+    });
+
+    const tbody = document.getElementById('studentBody');
+    const entries = Object.entries(students).sort((a, b) => b[1].maxScore - a[1].maxScore);
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:#aaa;text-align:center">אין תוצאות עדיין</td></tr>';
+    } else {
+      tbody.innerHTML = entries.map(([name, s]) => `<tr>
+        <td style="font-weight:600">${name}</td>
+        <td style="font-weight:700;color:#1565c0">${s.maxScore}</td>
+        <td>${s.games}</td>
+        <td class="win">${s.wins}</td>
+      </tr>`).join('');
+    }
+    document.getElementById('resultsNote').textContent = 'עודכן ' + new Date().toLocaleTimeString('he-IL');
+  } catch(e) {
+    document.getElementById('resultsNote').textContent = 'שגיאה בטעינה';
+  }
+}
+
+/* ---- fetch current version from server ---- */
+async function fetchCurrentVersion() {
+  try {
+    const r = await fetch(YISUMATICA + 'api.php?action=get_version');
+    const d = await r.json();
+    if (d.ok && (d.version === 12 || d.version === 24)) {
+      N = d.version; TOTAL = N * (N + 1) / 2;
+      const btns = document.querySelectorAll('#versionToggle button');
+      btns.forEach(b => b.classList.toggle('active', b.textContent === '1-' + N));
+      init();
+    }
+  } catch(e) {}
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* ---- render ---- */
+function render() {
+  const row = document.getElementById('row');
+  row.innerHTML = '';
+  for (let i = 1; i <= N; i++) {
+    if (!avail.has(i) && !pendingTax.has(i)) continue;
+    const t = document.createElement('div');
+    t.textContent = i; t.dataset.num = i;
+    if (pendingTax.has(i)) {
+      t.className = 'tile avail';
+      t.style.opacity = '0.35'; t.style.pointerEvents = 'none';
+    } else {
+      t.className = 'tile avail';
+      if (!waitingForEnd) {
+        t.addEventListener('mousedown', e => dragStart(e, i));
+        t.addEventListener('touchstart', e => dragStart(e, i), {passive:false});
+      }
+    }
+    row.appendChild(t);
+  }
+  fillBox('playerTiles', pNums, 'in-player');
+  fillBox('taxTiles', tNums, 'in-tax');
+  document.getElementById('playerSum').textContent = pSum;
+  document.getElementById('taxSum').textContent = tSum;
+  updateHighScoreDisplay();
+}
+
+function fillBox(id, nums, cls) {
+  const el = document.getElementById(id); el.innerHTML = '';
+  nums.forEach(n => { const t = document.createElement('div'); t.className = 'tile ' + cls; t.textContent = n; el.appendChild(t); });
+}
+
+/* ---- drag ---- */
+function dragStart(e, num) {
+  if (over || waitingForEnd) return;
+  e.preventDefault();
+  const src = e.currentTarget, r = src.getBoundingClientRect();
+  dragN = num;
+  ghost = document.createElement('div'); ghost.className = 'tile ghost'; ghost.textContent = num;
+  ghost.style.width = r.width + 'px'; ghost.style.height = r.height + 'px';
+  document.body.appendChild(ghost); src.classList.add('dragging');
+  moveG(e.clientX ?? e.touches[0].clientX, e.clientY ?? e.touches[0].clientY);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+}
+function onMove(e) {
+  e.preventDefault();
+  const x = e.clientX ?? e.touches[0].clientX, y = e.clientY ?? e.touches[0].clientY;
+  moveG(x, y);
+  const r = document.getElementById('playerBox').getBoundingClientRect();
+  document.getElementById('playerBox').classList.toggle('drop-hover',
+    x >= r.left && x <= r.right && y >= r.top && y <= r.bottom);
+}
+function moveG(x, y) {
+  if (!ghost) return;
+  ghost.style.left = (x - ghost.offsetWidth / 2) + 'px';
+  ghost.style.top = (y - ghost.offsetHeight / 2) + 'px';
+}
+function onEnd(e) {
+  document.removeEventListener('mousemove', onMove);
+  document.removeEventListener('touchmove', onMove);
+  document.removeEventListener('mouseup', onEnd);
+  document.removeEventListener('touchend', onEnd);
+  const x = e.clientX ?? e.changedTouches?.[0]?.clientX ?? 0;
+  const y = e.clientY ?? e.changedTouches?.[0]?.clientY ?? 0;
+  const r = document.getElementById('playerBox').getBoundingClientRect();
+  const dropped = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  if (dropped && dragN !== null) {
+    if (canPlay(dragN)) doTurn(dragN);
+    else showToast(`ל-${dragN} אין מחלק על הלוח`);
+  }
+  ghost?.remove(); ghost = null;
+  document.querySelector('.tile.dragging')?.classList.remove('dragging');
+  document.getElementById('playerBox').classList.remove('drop-hover');
+  dragN = null;
+}
+
+/* ---- turn ---- */
+function doTurn(num) {
+  const ds = divs(num).filter(d => avail.has(d));
+  const pos = {};
+  ds.forEach(d => { const el = document.querySelector(`[data-num="${d}"]`); if(el) pos[d] = el.getBoundingClientRect(); });
+
+  avail.delete(num);
+  pNums.push(num); pSum += num;
+  ds.forEach(d => { avail.delete(d); pendingTax.add(d); });
+  moves.push({num, tax: ds.slice(), taxGain: ds.reduce((s,d) => s+d, 0)});
+  render();
+  flyToTax(ds, pos);
+
+  const totalAnimTime = 1500 + ds.length * 1000 + 1500;
+  if (!anyMove()) {
+    waitingForEnd = true;
+    setTimeout(() => { document.getElementById('endBtn').style.display = ''; render(); }, totalAnimTime);
+  }
+}
+
+function flyToTax(nums, pos) {
+  const tgt = document.getElementById('taxBox').getBoundingClientRect();
+  const cx = tgt.left + tgt.width / 2, cy = tgt.top + tgt.height / 2;
+  const INITIAL_DELAY = 1500, GAP = 1000, FLIGHT = 1500;
+  nums.forEach((d, i) => {
+    const startAt = INITIAL_DELAY + i * GAP;
+    setTimeout(() => {
+      const srcTile = document.querySelector(`[data-num="${d}"]`);
+      const f = srcTile ? srcTile.getBoundingClientRect() : pos[d];
+      if (!f) return;
+      if (srcTile) srcTile.style.visibility = 'hidden';
+      pendingTax.delete(d);
+      const el = document.createElement('div'); el.className = 'tile tax-fly'; el.textContent = d;
+      Object.assign(el.style, {
+        left: f.left+'px', top: f.top+'px', width: f.width+'px', height: f.height+'px',
+        transition: `all ${FLIGHT}ms cubic-bezier(.25,.1,.25,1)`
+      });
+      document.body.appendChild(el);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.left = (cx - f.width/2) + 'px'; el.style.top = (cy - f.height/2) + 'px';
+        el.style.opacity = '0'; el.style.transform = 'scale(.55)';
+      }));
+      setTimeout(() => {
+        el.remove();
+        tNums.push(d); tSum += d;
+        fillBox('taxTiles', tNums, 'in-tax');
+        document.getElementById('taxSum').textContent = tSum;
+      }, FLIGHT);
+    }, startAt);
+  });
+}
+
+/* ---- end ---- */
+function collectRemainder() {
+  document.getElementById('endBtn').style.display = 'none'; over = true;
+  const rem = [...avail].sort((a,b) => a-b);
+  const pos = {};
+  rem.forEach(n => { const el = document.querySelector(`[data-num="${n}"]`); if(el) pos[n] = el.getBoundingClientRect(); });
+  rem.forEach(n => { avail.delete(n); pendingTax.add(n); });
+  render();
+  flyToTax(rem, pos);
+  setTimeout(showModal, 1500 + rem.length * 1000 + 1500);
+}
+
+function showModal() {
+  const res = pSum > tSum ? 'win' : pSum < tSum ? 'lose' : 'tie';
+  const hue = {win:'#2e7d32', lose:'#c62828', tie:'#f9a825'}[res];
+  const title = {win:'ניצחון!', lose:'הפסד!', tie:'תיקו!'}[res];
+  const txt = pSum > tSum ? `ניצחת! ${pSum} מול ${tSum}` : pSum < tSum ? `גובה המיסים ניצח. ${tSum} מול ${pSum}` : `תיקו! שניכם ${pSum}`;
+
+  let newRecord = false;
+  if (pSum > getHighScore()) { setHighScore(pSum); newRecord = true; }
+
+  const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = `<div class="modal">
+    <h2 style="color:${hue}">${title}</h2>
+    <p class="res">${txt} (מתוך ${TOTAL})</p>
+    ${newRecord ? '<p class="new-record">⭐ שיא חדש!</p>' : ''}
+    <button class="btn-again" onclick="closeM();init()">שחק שוב</button></div>`;
+  document.body.appendChild(o);
+}
+
+function closeM() { document.querySelector('.overlay')?.remove(); }
+
+/* ---- QR ---- */
+function renderQR() {
+  if (typeof qrcode === 'undefined') return;
+  const q = qrcode(0, 'M'); q.addData(YISUMATICA); q.make();
+  document.getElementById('qrStudent').innerHTML = q.createSvgTag(3, 0) + '<div class="qr-label">סרקו לשחק</div>';
+}
+
+/* ---- init ---- */
+function init() {
+  avail = new Set(); for(let i=1;i<=N;i++) avail.add(i);
+  pNums=[]; tNums=[]; pSum=0; tSum=0; moves=[]; over=false; waitingForEnd=false; pendingTax=new Set();
+  document.getElementById('endBtn').style.display = 'none';
+  closeM(); render();
+}
+
+renderQR(); fetchCurrentVersion(); init();
+</script>
+</body>
+</html>
