@@ -429,7 +429,7 @@ function renderValueButtons() {
 function updateUI() {
   renderModeButtons();
   renderValueButtons();
-  knowBtn.style.display = currentMode === 'symmetry' ? 'inline-block' : 'none';
+  knowBtn.style.display = 'inline-block';
   dimsToggle.classList.toggle('on', showDims);
 }
 
@@ -624,7 +624,7 @@ function revealAllShapes() {
 }
 
 function enterGuessing() {
-  if (gameOver || guessing || currentMode !== 'symmetry') return;
+  if (gameOver || guessing) return;
   guessing = true;
   knowBtn.disabled = true;
   updateTurnIndicator();
