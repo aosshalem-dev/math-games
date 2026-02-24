@@ -80,7 +80,12 @@ h1 {
   transform: scale(1.08);
 }
 
+.value-btn {
+  opacity: 0.5;
+}
+
 .value-btn.active {
+  opacity: 1;
   background: #2a9d8f;
   color: #fff;
   border-color: #2a9d8f;
@@ -468,17 +473,14 @@ function updateDims() {
 
 function updateModeDisplay() {
   if (currentMode === 'symmetry') {
-    let text = 'שטח = ' + currentValue + '  |  צורה סימטרית';
-    if (showDims) text += '  |  ציר סימטריה: אנכי או אופקי';
-    modeDisplayEl.textContent = text;
+    modeDisplayEl.textContent = showDims ? 'ציר סימטריה: אנכי או אופקי' : '';
     return;
   }
-  const modeHeb = currentMode === 'perimeter' ? 'היקף' : 'שטח';
   if (showDims && currentDims.length > 0) {
     const dimsStr = currentDims.map(([w,h]) => w + '×' + h).join(' , ');
-    modeDisplayEl.textContent = modeHeb + ' = ' + currentValue + '  |  מלבנים אפשריים: ' + dimsStr;
+    modeDisplayEl.textContent = 'מלבנים אפשריים: ' + dimsStr;
   } else {
-    modeDisplayEl.textContent = modeHeb + ' = ' + currentValue;
+    modeDisplayEl.textContent = '';
   }
 }
 
