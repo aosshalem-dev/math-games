@@ -145,7 +145,7 @@ h1 {
   gap: 3px;
   width: min(90vw, 480px);
   height: min(90vw, 480px);
-  background: #333;
+  background: #fff;
   padding: 3px;
   border-radius: 8px;
   direction: ltr;
@@ -198,6 +198,22 @@ button {
   transition: background 0.2s;
 }
 
+#notify {
+  position: absolute;
+  top: 50%;
+  right: -1rem;
+  transform: translate(100%, -50%);
+  font-size: 0.95rem;
+  color: #2a9d8f;
+  font-weight: bold;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#notify.show { opacity: 1; }
+
 #know-btn { background: #f4a261; color: #fff; display: none; }
 #know-btn:hover { background: #e08a3a; }
 #know-btn:disabled { background: #ccc; color: #999; cursor: default; }
@@ -227,7 +243,10 @@ button {
 
 <div id="turn-indicator" class="blue">תור כחול</div>
 <div id="mode-display"></div>
-<div id="grid"></div>
+<div style="position: relative;">
+  <div id="grid"></div>
+  <div id="notify"></div>
+</div>
 
 <script>
 let GRID_SIZE = 7;
@@ -424,8 +443,17 @@ const valueRowEl = document.getElementById('value-row');
 const dimsToggle = document.getElementById('show-dims-toggle');
 const numsToggle = document.getElementById('hide-nums-toggle');
 const knowBtn = document.getElementById('know-btn');
+const notifyEl = document.getElementById('notify');
+let notifyTimer = null;
 
 function randInt(max) { return Math.floor(Math.random() * max); }
+
+function showNotify() {
+  if (notifyTimer) clearTimeout(notifyTimer);
+  notifyEl.textContent = 'צורות חדשות הוצבו';
+  notifyEl.classList.add('show');
+  notifyTimer = setTimeout(() => notifyEl.classList.remove('show'), 2000);
+}
 
 // ==================== UI: button rows ====================
 
@@ -543,6 +571,7 @@ function initGame() {
 
   renderGrid();
   updateTurnIndicator();
+  showNotify();
 }
 
 // ==================== Rendering ====================
@@ -550,6 +579,7 @@ function initGame() {
 function renderGrid() {
   gridEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
   gridEl.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
+  gridEl.style.background = '#333';
   gridEl.innerHTML = '';
   let num = 1;
   for (let r = 0; r < GRID_SIZE; r++) {
