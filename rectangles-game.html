@@ -437,7 +437,7 @@ function setsOverlap(a, b) {
 let board, revealed, currentTurn, gameOver, guessing;
 let blueCells, redCells;
 let currentMode = 'area';
-let currentValue = 8;
+let currentValue = 10;
 let currentDims = [];
 let showDims = false;
 let hideNums = false;
@@ -534,6 +534,8 @@ function updateModeDisplay() {
 // ==================== Game init ====================
 
 function initGame() {
+  const values = getValuesForMode(currentMode);
+  if (!values.includes(currentValue)) currentValue = values[Math.floor(values.length / 2)];
   updateDims();
   updateModeDisplay();
   updateUI();
