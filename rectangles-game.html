@@ -149,6 +149,7 @@ h1 {
   padding: 3px;
   border-radius: 8px;
   direction: ltr;
+  visibility: hidden;
 }
 
 .cell {
@@ -584,7 +585,6 @@ function initGame() {
 function renderGrid() {
   gridEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
   gridEl.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
-  gridEl.style.background = '#333';
   gridEl.innerHTML = '';
   let num = 1;
   for (let r = 0; r < GRID_SIZE; r++) {
@@ -601,6 +601,8 @@ function renderGrid() {
       num++;
     }
   }
+  gridEl.style.background = '#333';
+  gridEl.style.visibility = 'visible';
 }
 
 function getCellEl(r, c) { return gridEl.children[r * GRID_SIZE + c]; }
