@@ -256,22 +256,33 @@ function getDimsForArea(a) {
 }
 
 function filterDims(dims) {
+  const minA = minShapeArea();
   const maxArea = Math.floor(GRID_SIZE * GRID_SIZE * 0.35);
-  return dims.filter(([w, h]) =>
-    w * h <= maxArea && (2 * w <= GRID_SIZE || 2 * h <= GRID_SIZE));
+  return dims.filter(([w, h]) => {
+    const a = w * h;
+    return a >= minA && a <= maxArea && (2 * w <= GRID_SIZE || 2 * h <= GRID_SIZE);
+  });
 }
 
+function minShapeArea() { return Math.ceil(GRID_SIZE * GRID_SIZE / 6); }
+
 function getValidPerimeters() {
-  return [8, 10, 12, 14, 16].filter(p => filterDims(getDimsForPerimeter(p)).length > 0);
+  const minA = minShapeArea();
+  return [8, 10, 12, 14, 16].filter(p => {
+    const dims = filterDims(getDimsForPerimeter(p));
+    return dims.some(([w, h]) => w * h >= minA);
+  });
 }
 
 function getValidAreas() {
-  return [6, 8, 10, 12, 14, 16, 18].filter(a => filterDims(getDimsForArea(a)).length > 0);
+  const minA = minShapeArea();
+  return [6, 8, 10, 12, 14, 16, 18].filter(a => a >= minA && filterDims(getDimsForArea(a)).length > 0);
 }
 
 function getValidSymAreas() {
+  const minA = minShapeArea();
   const maxArea = Math.floor(GRID_SIZE * GRID_SIZE * 0.35);
-  return [5, 6, 7, 8, 9].filter(a => a <= maxArea);
+  return [5, 6, 7, 8, 9, 10, 11, 12].filter(a => a >= minA && a <= maxArea);
 }
 
 function pickRect(dims) {
@@ -435,7 +446,9 @@ function renderValueButtons() {
   valueRowEl.innerHTML = '';
 
   const label = document.createElement('label');
-  label.textContent = currentMode === 'perimeter' ? 'היקף:' : 'שטח:';
+  if (currentMode === 'perimeter') label.textContent = 'היקף:';
+  else if (currentMode === 'symmetry') label.textContent = 'שטח הצורה:';
+  else label.textContent = 'שטח המלבן:';
   valueRowEl.appendChild(label);
 
   values.forEach(v => {
