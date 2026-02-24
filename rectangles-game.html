@@ -125,8 +125,8 @@ h1 {
 
 #grid {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  grid-template-rows: repeat(9, 1fr);
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(7, 1fr);
   gap: 3px;
   width: min(90vw, 480px);
   height: min(90vw, 480px);
@@ -202,9 +202,10 @@ button {
   <button id="know-btn">אני יודע את הצורה!</button>
   <span class="separator">|</span>
   <label>לוח:</label>
-  <button class="size-btn" data-size="7">7</button>
+  <button class="size-btn" data-size="5">5</button>
+  <button class="size-btn" data-size="6">6</button>
+  <button class="size-btn active" data-size="7">7</button>
   <button class="size-btn" data-size="8">8</button>
-  <button class="size-btn active" data-size="9">9</button>
 </div>
 
 <div id="turn-indicator" class="blue">תור כחול</div>
@@ -212,7 +213,7 @@ button {
 <div id="grid"></div>
 
 <script>
-let GRID_SIZE = 9;
+let GRID_SIZE = 7;
 
 // ==================== Rectangle helpers ====================
 
@@ -237,22 +238,28 @@ function getDimsForArea(a) {
   return dims;
 }
 
-function canFitTwo(dims) {
-  return dims.some(([w, h]) => 2 * w <= GRID_SIZE || 2 * h <= GRID_SIZE);
+function filterDims(dims) {
+  const maxArea = Math.floor(GRID_SIZE * GRID_SIZE * 0.35);
+  return dims.filter(([w, h]) =>
+    w * h <= maxArea && (2 * w <= GRID_SIZE || 2 * h <= GRID_SIZE));
 }
 
 function getValidPerimeters() {
-  return [8, 10, 12, 14, 16].filter(p => canFitTwo(getDimsForPerimeter(p)));
+  return [8, 10, 12, 14, 16].filter(p => filterDims(getDimsForPerimeter(p)).length > 0);
 }
 
 function getValidAreas() {
-  return [6, 8, 10, 12, 14, 16, 18].filter(a => canFitTwo(getDimsForArea(a)));
+  return [6, 8, 10, 12, 14, 16, 18].filter(a => filterDims(getDimsForArea(a)).length > 0);
 }
 
-function getValidSymAreas() { return [5, 6, 7, 8, 9]; }
+function getValidSymAreas() {
+  const maxArea = Math.floor(GRID_SIZE * GRID_SIZE * 0.35);
+  return [5, 6, 7, 8, 9].filter(a => a <= maxArea);
+}
 
 function pickRect(dims) {
-  const [w, h] = dims[randInt(dims.length)];
+  const valid = filterDims(dims);
+  const [w, h] = valid[randInt(valid.length)];
   return { r: randInt(GRID_SIZE - h + 1), c: randInt(GRID_SIZE - w + 1), w, h };
 }
 
@@ -377,7 +384,7 @@ function setsOverlap(a, b) {
 let board, revealed, currentTurn, gameOver, guessing;
 let blueCells, redCells;
 let currentMode = 'area';
-let currentValue = 10;
+let currentValue = 8;
 let currentDims = [];
 let showDims = false;
 
