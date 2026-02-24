@@ -145,7 +145,7 @@ h1 {
   gap: 3px;
   width: min(90vw, 480px);
   height: min(90vw, 480px);
-  background: #fff;
+  background: transparent;
   padding: 3px;
   border-radius: 8px;
   direction: ltr;
@@ -222,7 +222,12 @@ button {
 </head>
 <body>
 
-<h1>משחק הצוללות הגיאומטריות</h1>
+<div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.5rem;">
+  <a href="https://www.yisumatica.org.il/new/" target="_blank">
+    <img src="yisumatica_logo.png" alt="Yisumatica" style="height:2.5rem;">
+  </a>
+  <h1>משחק הצוללות הגיאומטריות</h1>
+</div>
 
 <div class="btn-row" id="top-row">
   <button class="mode-btn active" data-mode="area">שטח</button>
